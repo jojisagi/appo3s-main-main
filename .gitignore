@@ -1,0 +1,4 @@
+# Project exclude paths
+/appo3s-main/.dart_tool/
+/appo3s-main/backend/.dart_tool/
+/appo3s-main/build/
