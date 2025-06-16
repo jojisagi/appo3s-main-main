@@ -5,6 +5,7 @@ import '../services/record_service.dart';
 
 class RecordForm extends StatefulWidget {
   const RecordForm({super.key});
+
   @override
   State<RecordForm> createState() => _RecordFormState();
 }
@@ -28,17 +29,19 @@ class _RecordFormState extends State<RecordForm> {
             TextFormField(
               decoration: const InputDecoration(labelText: 'Contaminante'),
               onSaved: (v) => contaminante = v ?? '',
-              validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+              validator: (v) =>
+              v == null || v.isEmpty ? 'Campo requerido' : null,
             ),
             TextFormField(
-              decoration:
-              const InputDecoration(labelText: 'Concentración (ppm)'),
+              decoration: const InputDecoration(labelText: 'Concentración (ppm)'),
               keyboardType: TextInputType.number,
-              onSaved: (v) => concentracion = double.parse(v ?? '0'),
-              validator: (v) => v == null || v.isEmpty ? 'Requerido' : null,
+              onSaved: (v) => concentracion = double.tryParse(v ?? '0') ?? 0,
+              validator: (v) =>
+              v == null || v.isEmpty ? 'Campo requerido' : null,
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
+            ElevatedButton.icon(
+              icon: const Icon(Icons.calendar_today),
               onPressed: () async {
                 final d = await showDatePicker(
                   context: context,
@@ -48,22 +51,30 @@ class _RecordFormState extends State<RecordForm> {
                 );
                 if (d != null) setState(() => fecha = d);
               },
-              child: Text('Fecha: ${fecha.toIso8601String().split('T').first}'),
+              label: Text('Fecha: ${fecha.toIso8601String().split('T').first}'),
             ),
             const SizedBox(height: 8),
-            ElevatedButton(
+            ElevatedButton.icon(
+              icon: const Icon(Icons.access_time),
               onPressed: () async {
-                final t =
-                await showTimePicker(context: context, initialTime: hora);
+                final t = await showTimePicker(
+                  context: context,
+                  initialTime: hora,
+                );
                 if (t != null) setState(() => hora = t);
               },
-              child: Text('Hora: ${hora.format(context)}'),
+              label: Text('Hora: ${hora.format(context)}'),
             ),
             const SizedBox(height: 24),
             ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Colors.white,
+              ),
               onPressed: () {
                 if (!(_formKey.currentState?.validate() ?? false)) return;
                 _formKey.currentState?.save();
+
                 final fechaHora = DateTime(
                   fecha.year,
                   fecha.month,
@@ -71,6 +82,7 @@ class _RecordFormState extends State<RecordForm> {
                   hora.hour,
                   hora.minute,
                 );
+
                 context.read<RecordService>().addRecord(
                   Record(
                     contaminante: contaminante,
@@ -78,7 +90,7 @@ class _RecordFormState extends State<RecordForm> {
                     fechaHora: fechaHora,
                   ),
                 );
-                Navigator.pop(context); // cierra el sheet
+                Navigator.pop(context); // cierra el formulario
               },
               child: const Text('Guardar'),
             ),

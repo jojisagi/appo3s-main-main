@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
-import 'Historial_registros.dart';
-import 'Creando_registros.dart';
+import 'historial_registros.dart';
+import 'creando_registros.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -15,15 +16,15 @@ class HomeScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) =>  Historial_registros()),
+                MaterialPageRoute(builder: (_) => const HistorialRegistros()),
               ),
-              child: const Text('    Historial de registros  '),
+              child: const Text('Historial de registros'),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) =>  CreandoRegistros()),
+                MaterialPageRoute(builder: (_) => const CreandoRegistros()),
               ),
               child: const Text('Iniciar proceso de registro'),
             ),

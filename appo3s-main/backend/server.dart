@@ -20,7 +20,7 @@ Future<void> main() async {
   // 2. Conectar a MongoDB
   final db = await Db.create(mongoUri);
   await db.open();
-  final col = db.collection('biblioteca');   // Cambia si prefieres otra colección
+  final col = db.collection('biblioteca');
 
   // 3. Definir router
   final router = Router()

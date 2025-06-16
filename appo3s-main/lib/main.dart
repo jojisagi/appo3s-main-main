@@ -6,7 +6,7 @@ import 'screens/home_screen.dart';
 void main() {
   runApp(
     ChangeNotifierProvider(
-      create: (_) => RecordService(),
+      create: (_) => RecordService()..fetchAll(), // Carga registros al iniciar
       child: const AppO3Sense(),
     ),
   );
@@ -14,35 +14,28 @@ void main() {
 
 class AppO3Sense extends StatelessWidget {
   const AppO3Sense({super.key});
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Medición de Ozono',
-      theme: 
-         ThemeData(useMaterial3: true, 
-                    colorSchemeSeed: const Color.fromARGB(255, 59, 111, 184),
-                    brightness: Brightness.light,
-                    
-                     // Personalización avanzada
-                    appBarTheme: const AppBarTheme(
-                      centerTitle: true,
-                      elevation: 4,
-                      backgroundColor: const Color.fromARGB(255, 59, 111, 184),// Color de fondo del AppBar
-                      titleTextStyle: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      iconTheme: IconThemeData(color: Color.fromARGB(255, 255, 255, 255)),  // Color de íconos del AppBar
-                    ),
-
-
-                  ),
-
-
-              debugShowCheckedModeBanner: false,  // Elimina la etiqueta de debug
-
-
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: const Color.fromARGB(255, 59, 111, 184),
+        brightness: Brightness.light,
+        appBarTheme: const AppBarTheme(
+          centerTitle: true,
+          elevation: 4,
+          backgroundColor: Color.fromARGB(255, 59, 111, 184),
+          titleTextStyle: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+          iconTheme: IconThemeData(color: Colors.white),
+        ),
+      ),
+      debugShowCheckedModeBanner: false,
       home: const HomeScreen(),
     );
   }
