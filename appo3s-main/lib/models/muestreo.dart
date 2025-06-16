@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:appo3s/models/sample.dart';
 
 class Muestreo {
+   Duration? maxDuration;
   final List<Sample> _samples = [
     Sample(numSample: 1, selectedMinutes: 0, selectedSeconds: 30),
     Sample(numSample: 2, selectedMinutes: 1, selectedSeconds: 0),

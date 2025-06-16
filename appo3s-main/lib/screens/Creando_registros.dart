@@ -66,34 +66,41 @@ class _GraphsBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(
-            flex: 3,
-            child: Column(
-              children: [
-                TimerWidget(muestreo: muestreo),
-                const SizedBox(height: 12),
-                const OzoneChart(),
-                const SizedBox(height: 12),
-                const AUCWidget(),
-              ],
-            ),
-          ),
+          // Timer en la parte superior
+          TimerWidget(muestreo: muestreo),
+          const SizedBox(height: 20),
           
-          const SizedBox(width: 12),
-          
-          Expanded(
-            flex: 2,
-            child: Column(
-              children: [
-                const SizedBox(height: 12),
-                const ConductivityChart(),
-                const SizedBox(height: 12),
-                const PhChart(),
-              ],
-            ),
+          // Gráficas en dos columnas debajo
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    const OzoneChart(),
+                    const SizedBox(height: 12),
+                    const AUCWidget(),
+                  ],
+                ),
+              ),
+              
+              const SizedBox(width: 12),
+              
+              Expanded(
+                flex: 2,
+                child: Column(
+                  children: [
+                    const ConductivityChart(),
+                    const SizedBox(height: 12),
+                    const PhChart(),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),
