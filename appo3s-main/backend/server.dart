@@ -10,7 +10,7 @@ void main() async {
 
   final db = await Db.create(env['MONGO_URI']!);
   await db.open();
-  final col = db.collection('registros');
+  final col = db.collection('biblioteca');
 
   final app = Router()
     ..get('/records', (Request req) async {
