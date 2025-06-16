@@ -1,7 +1,10 @@
+import 'package:appo3s/models/muestreo.dart';
 import 'package:flutter/material.dart';
 
 class TimerWidget extends StatelessWidget {
-  const TimerWidget({super.key});
+  Muestreo muestreo = Muestreo();
+   TimerWidget({required this.muestreo});
+
   @override
   Widget build(BuildContext context) {
     return Container(

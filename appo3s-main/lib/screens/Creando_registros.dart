@@ -6,15 +6,23 @@ import '../widgets/ph_chart.dart';
 import '../widgets/auc_widget.dart';
 import '../widgets/record_form.dart';
 import '../widgets/editing_samples.dart';
+import '../models/muestreo.dart';
 
-class Creando_registros extends StatelessWidget {
-  const Creando_registros({super.key});
+class CreandoRegistros extends StatefulWidget {
+  const CreandoRegistros({super.key});
+
+  @override
+  State<CreandoRegistros> createState() => _CreandoRegistrosState();
+}
+
+class _CreandoRegistrosState extends State<CreandoRegistros> {
+   Muestreo muestreo = Muestreo();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Gráficas')),
-      body: const _GraphsBody(),
+      body: _GraphsBody(muestreo: muestreo),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -24,21 +32,21 @@ class Creando_registros extends StatelessWidget {
             onPressed: () => showModalBottomSheet(
               context: context,
               isScrollControlled: true,
-              builder: (_) => const Padding(
-                padding: EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 10),
-                child: Editing_samples(),
+              builder: (_) => Padding(
+                padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 10),
+                child: EditingSamples(muestreo: muestreo),
               ),
             ),
           ),
-          const SizedBox(height: 16), // Space between buttons
+          const SizedBox(height: 16),
           FloatingActionButton(
-            heroTag: 'RecordForm', // Unique tag required when multiple FABs exist
+            heroTag: 'RecordForm',
             child: const Icon(Icons.check),
             onPressed: () => showModalBottomSheet(
               context: context,
               isScrollControlled: true,
-              builder: (_) => const Padding(
-                padding: EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 10),
+              builder: (_) => Padding(
+                padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 10),
                 child: RecordForm(),
               ),
             ),
@@ -50,7 +58,9 @@ class Creando_registros extends StatelessWidget {
 }
 
 class _GraphsBody extends StatelessWidget {
-  const _GraphsBody();
+  final Muestreo muestreo;
+  
+  const _GraphsBody({required this.muestreo});
   
   @override
   Widget build(BuildContext context) {
@@ -59,12 +69,11 @@ class _GraphsBody extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Columna izquierda (más ancha - proporción 3)
           Expanded(
-            flex: 3, // 60% del espacio si la derecha es 2
+            flex: 3,
             child: Column(
               children: [
-                TimerWidget(),
+                TimerWidget(muestreo: muestreo),
                 const SizedBox(height: 12),
                 const OzoneChart(),
                 const SizedBox(height: 12),
@@ -75,9 +84,8 @@ class _GraphsBody extends StatelessWidget {
           
           const SizedBox(width: 12),
           
-          // Columna derecha (más estrecha - proporción 2)
           Expanded(
-            flex: 2, // 40% del espacio
+            flex: 2,
             child: Column(
               children: [
                 const SizedBox(height: 12),

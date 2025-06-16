@@ -1,103 +1,114 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
-import '../models/record.dart';
-import '../services/record_service.dart';
-
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import '../models/muestreo.dart';
 import '../models/sample.dart';
-class Editing_samples extends StatefulWidget {
-  const Editing_samples({super.key});
+
+class EditingSamples extends StatefulWidget {
+  final Muestreo muestreo;
+  
+  const EditingSamples({super.key, required this.muestreo});
+
   @override
-  State<Editing_samples> createState() => _Editing_samplesState();
+  State<EditingSamples> createState() => _EditingSamplesState();
 }
 
-class _Editing_samplesState extends State<Editing_samples> {
+class _EditingSamplesState extends State<EditingSamples> {
   final _formKey = GlobalKey<FormState>();
-  List<Sample> samples = [
-    Sample(numSample: 1, selectedMinutes: 0, selectedSeconds: 30),
-    Sample(numSample: 2, selectedMinutes: 1, selectedSeconds: 0),
-    Sample(numSample: 3, selectedMinutes: 1, selectedSeconds: 30),
-    Sample(numSample: 4, selectedMinutes: 2, selectedSeconds: 0),
-    Sample(numSample: 5, selectedMinutes: 2, selectedSeconds: 30),
-    Sample(numSample: 6, selectedMinutes: 3, selectedSeconds: 0),
-  ];
-
-  // Helper method to sort samples by duration
-  void _sortSamples() {
-    setState(() {
-      samples.sort((a, b) {
-        final aDuration = a.duration;
-        final bDuration = b.duration;
-        return aDuration.compareTo(bDuration);
-      });
-      
-      // Update sample numbers after sorting
-      for (int i = 0; i < samples.length; i++) {
-        samples[i] = samples[i].copyWith(numSample: i + 1);
-      }
-    });
-  }
 
   void _addSample() {
     setState(() {
-      samples.add(Sample(
-        numSample: samples.length + 1,
-        selectedMinutes: 0,
-        selectedSeconds: 0,
-      ));
-      _sortSamples(); // Sort after adding
+      if (widget.muestreo.isEmpty) {
+        // First sample: 0 minutes, 30 seconds
+        widget.muestreo.addSample(Sample(
+          numSample: 1,
+          selectedMinutes: 0,
+          selectedSeconds: 30,
+        ));
+      } else {
+        // Get the last sample's time
+        final lastSample = widget.muestreo.getSample(widget.muestreo.count - 1);
+        var newMinutes = lastSample.selectedMinutes;
+        var newSeconds = lastSample.selectedSeconds + 30;
+        
+        // Handle seconds overflow
+        if (newSeconds >= 60) {
+          newMinutes += newSeconds ~/ 60;
+          newSeconds = newSeconds % 60;
+        }
+        
+        widget.muestreo.addSample(Sample(
+          numSample: widget.muestreo.count + 1,
+          selectedMinutes: newMinutes,
+          selectedSeconds: newSeconds,
+        ));
+      }
+      _sortAndRenumberSamples();
+    });
+  }
+
+  void _sortAndRenumberSamples() {
+    setState(() {
+      // Get current samples and sort them by duration
+      final samples = widget.muestreo.samples.toList();
+      samples.sort((a, b) {
+        final aTotal = a.selectedMinutes * 60 + a.selectedSeconds;
+        final bTotal = b.selectedMinutes * 60 + b.selectedSeconds;
+        return aTotal.compareTo(bTotal);
+      });
+      
+      // Update the muestreo with sorted and renumbered samples
+      widget.muestreo.clearSamples();
+      for (int i = 0; i < samples.length; i++) {
+        widget.muestreo.addSample(samples[i].copyWith(numSample: i + 1));
+      }
     });
   }
 
   void _removeSample(int index) {
     setState(() {
-      samples.removeAt(index);
-      _sortSamples(); // Sort after removing
+      widget.muestreo.removeSample(index);
+      _sortAndRenumberSamples();
     });
   }
 
   void _updateSample(int index, Sample updatedSample) {
     setState(() {
-      samples[index] = updatedSample;
-      _sortSamples(); // Sort after updating
+      widget.muestreo.updateSample(index, updatedSample);
+      _sortAndRenumberSamples();
     });
   }
 
-@override
-Widget build(BuildContext context) {
-  return SingleChildScrollView(
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: samples.length,
-              itemBuilder: (context, index) {
-                final sample = samples[index];
-                return _buildSampleCard(sample, index);
-              },
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _addSample,
-              child: const Text('Add Sample'),
-            ),
-            const SizedBox(height: 16), // Espacio adicional al final
-          ],
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: widget.muestreo.count,
+                itemBuilder: (context, index) {
+                  final sample = widget.muestreo.getSample(index);
+                  return _buildSampleCard(sample, index);
+                },
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: _addSample,
+                child: const Text('Add Sample'),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildSampleCard(Sample sample, int index) {
     return Card(

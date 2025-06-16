@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../services/record_service.dart';
-import 'data_entry_screen.dart';
+
 
 class Historial_registros extends StatefulWidget {
-  const Historial_registros({super.key});
+   Historial_registros({super.key});
   @override
   State<Historial_registros> createState() => _RecordsScreenState();
 }

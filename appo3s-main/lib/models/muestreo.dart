@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:appo3s/models/sample.dart';
 
@@ -13,11 +12,11 @@ class Muestreo {
   ]; // Lista privada
 
   // Constructor opcional para inicializar con muestras existentes
-  Muestreo({List<Sample>? initialSamples}) {
-    if (initialSamples != null) {
-      _samples.addAll(initialSamples);
-    }
+  Muestreo() {
+  
   }
+
+ 
 
   // Getter para acceder a las muestras (solo lectura)
   List<Sample> get samples => List.unmodifiable(_samples);

@@ -15,7 +15,7 @@ class HomeScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const Historial_registros()),
+                MaterialPageRoute(builder: (_) =>  Historial_registros()),
               ),
               child: const Text('    Historial de registros  '),
             ),
@@ -23,7 +23,7 @@ class HomeScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () => Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const Creando_registros()),
+                MaterialPageRoute(builder: (_) =>  CreandoRegistros()),
               ),
               child: const Text('Iniciar proceso de registro'),
             ),
