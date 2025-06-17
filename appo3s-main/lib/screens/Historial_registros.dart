@@ -18,14 +18,14 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
   @override
   void initState() {
     super.initState();
-    _fetch(); // 👈 corrección principal aquí
+    _fetch();                     // descarga al abrir la pantalla
   }
 
   Future<void> _fetch() async {
     try {
       await context.read<RecordService>().fetchAll();
     } catch (e) {
-      setState(() => _error = e.toString());
+      _error = e.toString();
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -45,9 +45,14 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text('Error: $_error'))
+          ? Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text('Error: $_error',
+            style: const TextStyle(color: Colors.red)),
+      )
           : Column(
         children: [
+          // ─── Filtro + Recarga ───────────────────
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
@@ -87,6 +92,7 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
               ],
             ),
           ),
+          // ─── Lista ──────────────────────────────
           Expanded(
             child: registros.isEmpty
                 ? const Center(child: Text('Sin registros'))
@@ -121,9 +127,8 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                             ),
                             Text(
                               '${r.concentracion} ppm',
-                              style: const TextStyle(
-                                fontSize: 16,
-                              ),
+                              style:
+                              const TextStyle(fontSize: 16),
                             ),
                           ],
                         ),
@@ -133,8 +138,7 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                               .add_jm()
                               .format(r.fechaHora),
                           style: TextStyle(
-                            color: Colors.grey.shade600,
-                          ),
+                              color: Colors.grey.shade600),
                         ),
                       ],
                     ),
