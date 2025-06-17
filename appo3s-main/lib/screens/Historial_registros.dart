@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../services/record_service.dart';
+import '../models/record.dart';
 
 class HistorialRegistros extends StatefulWidget {
   const HistorialRegistros({super.key});
@@ -14,11 +16,22 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
   DateTime? selectedDate;
   bool _loading = true;
   String? _error;
+  Timer? _poller;                       // 👈  Timer para refresco
 
   @override
   void initState() {
     super.initState();
-    _fetch();                     // descarga al abrir la pantalla
+    _fetch();
+    _poller = Timer.periodic(            // 👈  cada 15 s
+      const Duration(seconds: 15),
+          (_) => context.read<RecordService>().fetchAll(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _poller?.cancel();                  // 👈  cancelamos al salir
+    super.dispose();
   }
 
   Future<void> _fetch() async {
@@ -34,25 +47,27 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
   @override
   Widget build(BuildContext context) {
     final rs = context.watch<RecordService>();
-    final registros =
-    selectedDate == null ? rs.records : rs.byDate(selectedDate!);
+    final registros = selectedDate == null
+        ? rs.records
+        : rs.byDate(selectedDate!);
+
+    // —— Agrupamos por día (AAAA-MM-DD) ——
+    final mapa = <String, List<Record>>{};
+    for (final r in registros) {
+      final clave = DateFormat('yyyy-MM-dd').format(r.fechaHora);
+      mapa.putIfAbsent(clave, () => []).add(r);
+    }
+    final dias = mapa.keys.toList()..sort((a, b) => b.compareTo(a)); // Desc.
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Historial de registros'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Historial de registros'), centerTitle: true),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Padding(
-        padding: const EdgeInsets.all(24),
-        child: Text('Error: $_error',
-            style: const TextStyle(color: Colors.red)),
-      )
+          ? Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)))
           : Column(
         children: [
-          // ─── Filtro + Recarga ───────────────────
+          // —— Filtro por fecha + recargar manual ——
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
@@ -72,77 +87,56 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                         firstDate: DateTime(2020),
                         lastDate: DateTime(2100),
                       );
-                      if (d != null) {
-                        setState(() => selectedDate = d);
-                      }
+                      if (d != null) setState(() => selectedDate = d);
                     },
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
-                  tooltip: 'Recargar',
                   onPressed: () {
-                    setState(() {
-                      _loading = true;
-                      _error = null;
-                    });
+                    setState(() => _loading = true);
                     _fetch();
                   },
                 ),
               ],
             ),
           ),
-          // ─── Lista ──────────────────────────────
+          // —— Lista agrupada ——
           Expanded(
-            child: registros.isEmpty
+            child: dias.isEmpty
                 ? const Center(child: Text('Sin registros'))
-                : ListView.separated(
+                : ListView.builder(
               padding: const EdgeInsets.all(12),
-              itemCount: registros.length,
-              separatorBuilder: (_, __) =>
-              const SizedBox(height: 8),
-              itemBuilder: (_, i) {
-                final r = registros[i];
-                return Card(
-                  elevation: 2,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                    child: Column(
-                      crossAxisAlignment:
-                      CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                r.contaminante,
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            Text(
-                              '${r.concentracion} ppm',
-                              style:
-                              const TextStyle(fontSize: 16),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          DateFormat.yMd()
-                              .add_jm()
-                              .format(r.fechaHora),
-                          style: TextStyle(
-                              color: Colors.grey.shade600),
-                        ),
-                      ],
+              itemCount: dias.length,
+              itemBuilder: (_, index) {
+                final dia = dias[index];
+                final lista = mapa[dia]!;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        DateFormat.yMMMMd().format(DateTime.parse(dia)),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16),
+                      ),
                     ),
-                  ),
+                    ...lista.map(
+                          (r) => Card(
+                        elevation: 2,
+                        margin: const EdgeInsets.only(bottom: 8),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          title: Text(r.contaminante),
+                          subtitle: Text(DateFormat.jm().format(r.fechaHora)),
+                          trailing: Text('${r.concentracion} ppm'),
+                        ),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
