@@ -6,11 +6,11 @@ import 'package:mongo_dart/mongo_dart.dart';
 import 'package:dotenv/dotenv.dart' show load, env;
 
 /// ─────────────────────────────────────────────────────────
-/// 1. Cargar variables .env  (necesario:  MONGO_URI )
+/// 1. Cargar variables .env  (necesario:  MONyGO_URI )
 /// ─────────────────────────────────────────────────────────
 Future<void> main() async {
-  load();
-  final mongoUri = env['MONGO_URI'];
+  //load();
+  final mongoUri = 'mongodb+srv://jorgesanchez:Alfresi123@cluster0.vsbti.mongodb.net/appo3s?retryWrites=true&w=majority';
   if (mongoUri == null) {
     print('❌  Falta MONGO_URI en .env');
     return;

@@ -9,25 +9,34 @@ class RecordService extends ChangeNotifier {
   List<Record> get records => _records;
 
   /// ───── Descarga todos los registros ─────
-  Future<void> fetchAll() async {
-    try {
-      final res = await http
-          .get(Uri.parse('$baseUrl/records'))
-          .timeout(const Duration(seconds: 20));          // timeout 20 s
+ Future<void> fetchAll() async {
+  try {
+    final res = await http
+        .get(Uri.parse('$baseUrl/records'))
+        .timeout(const Duration(seconds: 20));
 
-      if (res.statusCode != 200) throw 'HTTP ${res.statusCode}';
+    if (res.statusCode != 200) throw 'HTTP ${res.statusCode}';
 
-      final List data = jsonDecode(res.body);
-      _records
-        ..clear()
-        ..addAll(data.map((e) => Record.fromJson(e)));
+    final List data = jsonDecode(res.body);
+    _records.clear();  // Limpiar lista antes de agregar nuevos registros
 
-      notifyListeners();
-    } catch (e) {
-      debugPrint('❌ fetchAll → $e');
-      rethrow;
+    // Procesar cada registro e imprimirlo
+    print('📥 Registros recibidos (${data.length} en total):');
+    for (final item in data) {
+      final record = Record.fromJson(item);
+      _records.add(record);
+      
+      // Imprimir detalles del registro actual
+      print('  🟢 ${record.fechaHora} → ${record.contaminante}: ${record.concentracion}');
     }
+
+    notifyListeners();
+    print('✅ Todos los registros cargados y notificados.');
+  } catch (e) {
+    debugPrint('❌ fetchAll → $e');
+    rethrow;
   }
+}
 
   /// ───── Inserta y sincroniza ─────
   Future<void> addRecord(Record record) async {
