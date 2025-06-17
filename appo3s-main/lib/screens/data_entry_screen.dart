@@ -82,7 +82,7 @@ class _DataEntryScreenState extends State<DataEntryScreen> {
                       Record(
                         contaminante: contaminante,
                         concentracion: concentracion,
-                        fechaHora: fechaHora,
+                        fechaHora: fechaHora, tipo: '',
                       ),
                     );
                     ScaffoldMessenger.of(context).showSnackBar(
