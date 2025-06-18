@@ -1,27 +1,26 @@
-//record_service.dart
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../models/record.dart';
 import 'api_config.dart';
 
 class RecordService extends ChangeNotifier {
   final List<Record> _records = [];
-  List<Record> get records => List.unmodifiable(_records);
+  List<Record> get records => _records;
 
-  /* ──────────────── DESCARGAR TODOS ──────────────── */
+  /// ───── Descarga todos los registros ─────
   Future<void> fetchAll() async {
     try {
       final res = await http
           .get(Uri.parse('$baseUrl/records'))
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 20));          // timeout 20 s
 
       if (res.statusCode != 200) throw 'HTTP ${res.statusCode}';
 
+      final List data = jsonDecode(res.body);
       _records
         ..clear()
-        ..addAll((jsonDecode(res.body) as List)
-            .map((e) => Record.fromJson(e as Map<String, dynamic>)));
+        ..addAll(data.map((e) => Record.fromJson(e)));
 
       notifyListeners();
     } catch (e) {
@@ -30,35 +29,33 @@ class RecordService extends ChangeNotifier {
     }
   }
 
-  /* ───────────── INSERTAR Y SINCRONIZAR ───────────── */
-  Future<void> addRecord(Record r) async {
-    _records.add(r);
+  /// ───── Inserta y sincroniza ─────
+  Future<void> addRecord(Record record) async {
+    _records.add(record);            // pinta al instante
     notifyListeners();
 
     try {
       final res = await http.post(
         Uri.parse('$baseUrl/records'),
         headers: {'Content-Type': 'application/json'},
-        body: jsonEncode(r.toJson()),
+        body: jsonEncode(record.toJson()),
       );
+
       if (res.statusCode != 200 && res.statusCode != 201) {
         throw 'POST ${res.statusCode}';
       }
-      await fetchAll();
+
+      await fetchAll();              // refresca con la DB real
     } catch (e) {
-      _records.remove(r);
+      _records.remove(record);       // revierte si falló
       notifyListeners();
       debugPrint('❌ addRecord → $e');
     }
   }
 
-  /* ───────────── FILTROS DE AYUDA ───────────── */
-  List<Record> byDate(DateTime d) => _records.where((r) =>
-  r.fechaHora.year == d.year &&
-      r.fechaHora.month == d.month &&
-      r.fechaHora.day == d.day).toList();
-
-  /// NUEVO ▸ filtra por tipo/contaminante (pH, cond, O3…)
-  List<Record> byType(String t) =>
-      _records.where((r) => r.tipo == t).toList();
+  /// ───── Filtro por fecha ─────
+  List<Record> byDate(DateTime d) => _records.where((r) {
+    final f = r.fechaHora;
+    return f.year == d.year && f.month == d.month && f.day == d.day;
+  }).toList();
 }
