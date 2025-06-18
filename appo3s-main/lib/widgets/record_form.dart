@@ -87,7 +87,7 @@ class _RecordFormState extends State<RecordForm> {
                   Record(
                     contaminante: contaminante,
                     concentracion: concentracion,
-                    fechaHora: fechaHora,
+                    fechaHora: fechaHora, tipo: '',
                   ),
                 );
                 Navigator.pop(context); // cierra el formulario

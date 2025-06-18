@@ -1,6 +1,8 @@
+// home_screen.dart
 import 'package:flutter/material.dart';
 import 'historial_registros.dart';
 import 'creando_registros.dart';
+import 'graphs_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -10,8 +12,9 @@ class HomeScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Menú principal')),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: ListView(
+          padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+          shrinkWrap: true,
           children: [
             ElevatedButton(
               onPressed: () => Navigator.push(
@@ -26,7 +29,15 @@ class HomeScreen extends StatelessWidget {
                 context,
                 MaterialPageRoute(builder: (_) => const CreandoRegistros()),
               ),
-              child: const Text('Iniciar proceso de registro'),
+              child: const Text('Ingresar registro manualmente'),
+            ),
+            const Divider(height: 40),
+            ElevatedButton(
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const GraphsScreen()),
+              ),
+              child: const Text('Gráficas en tiempo real'),
             ),
           ],
         ),
