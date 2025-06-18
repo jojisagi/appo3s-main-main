@@ -3,13 +3,9 @@ import 'package:appo3s/models/sample.dart';
 
 class Muestreo {
    Duration? maxDuration;
-  final List<Sample> _samples = [
-    Sample(numSample: 1, selectedMinutes: 0, selectedSeconds: 30),
-    Sample(numSample: 2, selectedMinutes: 1, selectedSeconds: 0),
-    Sample(numSample: 3, selectedMinutes: 1, selectedSeconds: 30),
-    Sample(numSample: 4, selectedMinutes: 2, selectedSeconds: 0),
-    Sample(numSample: 5, selectedMinutes: 2, selectedSeconds: 30),
-    Sample(numSample: 6, selectedMinutes: 3, selectedSeconds: 0),
+  
+   List<Sample> _samples = [
+    
   ]; // Lista privada
 
   // Constructor opcional para inicializar con muestras existentes
@@ -17,7 +13,22 @@ class Muestreo {
   
   }
 
- 
+ void llenarMuestras() {
+    _samples = [
+      Sample(numSample: 1, selectedMinutes: 0, selectedSeconds: 0),
+    Sample(numSample: 2, selectedMinutes: 0, selectedSeconds: 30),
+    Sample(numSample: 3, selectedMinutes: 1, selectedSeconds: 0),
+    Sample(numSample: 4, selectedMinutes: 1, selectedSeconds: 30),
+    Sample(numSample: 5, selectedMinutes: 2, selectedSeconds: 0),
+    Sample(numSample: 6, selectedMinutes: 2, selectedSeconds: 30),
+    Sample(numSample: 7, selectedMinutes: 3, selectedSeconds: 0),
+
+      
+    ];
+
+    _samples[3].y = 5;
+  }
+
 
   // Getter para acceder a las muestras (solo lectura)
   List<Sample> get samples => List.unmodifiable(_samples);

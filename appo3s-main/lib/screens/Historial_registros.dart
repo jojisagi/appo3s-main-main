@@ -4,7 +4,8 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import '../services/record_service.dart';
 import '../models/record.dart';
-
+import '../screens/Visualizando_registro.dart';
+import '../screens/Creando_registros.dart';
 class HistorialRegistros extends StatefulWidget {
   const HistorialRegistros({super.key});
 
@@ -124,16 +125,43 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                       ),
                     ),
                     ...lista.map(
-                          (r) => Card(
-                        elevation: 2,
-                        margin: const EdgeInsets.only(bottom: 8),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                        child: ListTile(
+                          (r) => Column(
+                        
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Botón para visualizar el registro
+                        ElevatedButton(
+                          
+                        
+
+                            onPressed: () => Navigator.push(
+                                    context,
+                                    MaterialPageRoute(builder: (_) =>  VisualizandoRegistros(
+                                        
+                                         fechaHora: Text(
+                                                  DateFormat.jm().format(r.fechaHora),
+                                                ),
+                                                contaminante: Text(
+                                                  r.contaminante,  
+                                                ),
+                                                concentracion: Text(
+                                                  '${r.concentracion.toStringAsFixed(2)} ppm',
+                                                ),
+                                        )),
+                                    
+
+                                    
+                                  ),
+                          child: ListTile(
                           title: Text(r.contaminante),
                           subtitle: Text(DateFormat.jm().format(r.fechaHora)),
                           trailing: Text('${r.concentracion} ppm'),
                         ),
+                        ),
+                        
+                         const SizedBox(height: 6),  // Reducido de 8
+                        ],
+                        
                       ),
                     ),
                   ],

@@ -2,16 +2,16 @@
 import 'package:flutter/services.dart';
 
 class Sample {
-  final int numSample;
-  final int selectedMinutes;
-  final int selectedSeconds;
-  final double? y;
+   int numSample;
+   int selectedMinutes;
+   int selectedSeconds;
+   double? y;
 
   Sample({
     required this.numSample,
     required this.selectedMinutes,
     required this.selectedSeconds,
-    this.y,
+    this.y=0.0,
   });
 
   Duration get duration => Duration(
