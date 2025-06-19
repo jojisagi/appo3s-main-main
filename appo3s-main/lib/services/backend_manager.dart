@@ -1,22 +1,23 @@
+//backend_manager.dart
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-/// Path RELATIVO al ejecutable de tu app (ajústalo si cambias carpetas)
+// carpeta donde está tu server.dart  (relativa al .exe/.app)
 const _backendPath = 'backend/server.dart';
-const _host        = 'localhost';
 const _port        = 8080;
-const _healthUrl   = 'http://$_host:$_port/health';
+const _healthUrl   = 'http://localhost:$_port/health';
 
 class BackendManager {
   BackendManager._();
   static final BackendManager instance = BackendManager._();
 
-  Process? _proc;                           // proceso en ejecución
-  Timer?   _timer;                          // heart-beat
+  Process? _proc;
+  Timer?   _heartbeat;
 
-  /// Llama a esto lo antes posible (p. ej. en main.dart)
+  // ───────────────────────── PUBLIC ─────────────────────────
   Future<void> init() async {
+    // si ya está arriba sólo activamos latido
     if (await _isUp()) {
       _startHeartbeat();
       return;
@@ -24,11 +25,16 @@ class BackendManager {
     await _restart();
   }
 
-  /// ------------------------------------------------------------ PRIVATE ---
+  Future<void> dispose() async {
+    await _proc?.kill();
+    _heartbeat?.cancel();
+  }
 
+  // ───────────────────────── PRIVATE ────────────────────────
   Future<bool> _isUp() async {
     try {
-      final req = await HttpClient().getUrl(Uri.parse(_healthUrl))
+      final req = await HttpClient()
+          .getUrl(Uri.parse(_healthUrl))
           .timeout(const Duration(seconds: 2));
       final res = await req.close();
       return res.statusCode == 200;
@@ -38,23 +44,22 @@ class BackendManager {
   }
 
   Future<void> _restart() async {
-    await _killPort();           // libera el 8080 si algo quedó colgado
+    await _killPort();                       // libera 8080 si quedó colgado
+
     _proc = await Process.start(
-      'dart',
-      ['run', _backendPath],
+      'dart', ['run', _backendPath],
       mode: ProcessStartMode.detachedWithStdio,
     );
 
-    // Imprime stdout/stderr para depurar
-    _proc!.stdout.transform(utf8.decoder).listen((l) => print('[BACK] $l'));
-    _proc!.stderr.transform(utf8.decoder).listen((l) => print('[BACK-ERR] $l'));
+    // log de depuración
+    _proc!.stdout.transform(utf8.decoder).listen((l) => print('[BACK]  $l'));
+    _proc!.stderr.transform(utf8.decoder).listen((l) => print('[BACK❗] $l'));
 
-    // Espera hasta que /health responda o 10 s de timeout
     final ok = await _waitUntilUp(const Duration(seconds: 10));
     if (!ok) {
-      print('❌ Backend no responde; revisa server.dart');
+      print('❌  Backend no responde (revisa backend/server.dart)');
     } else {
-      print('✅ Backend levantado (PID ${_proc!.pid})');
+      print('✅  Backend levantado, pid ${_proc!.pid}');
       _startHeartbeat();
     }
   }
@@ -69,10 +74,10 @@ class BackendManager {
   }
 
   void _startHeartbeat() {
-    _timer?.cancel();
-    _timer = Timer.periodic(const Duration(seconds: 5), (_) async {
+    _heartbeat?.cancel();
+    _heartbeat = Timer.periodic(const Duration(seconds: 5), (_) async {
       if (!await _isUp()) {
-        print('⚠️ Backend caído. Reiniciando…');
+        print('⚠️  Backend caído, reiniciando…');
         await _restart();
       }
     });
@@ -80,30 +85,20 @@ class BackendManager {
 
   Future<void> _killPort() async {
     if (Platform.isMacOS || Platform.isLinux) {
-      // lsof devuelve los PIDs que escuchan en :8080
-      final result = await Process.run('lsof', ['-ti:$_port']);
-      if (result.stdout is String && result.stdout.toString().trim().isNotEmpty) {
-        final pids = result.stdout.toString().trim().split('\n');
-        for (var pid in pids) {
-          await Process.run('kill', ['-9', pid]);
-        }
+      final res = await Process.run('lsof', ['-ti:$_port']);
+      final pids = (res.stdout as String).trim().split('\n').where((e) => e.isNotEmpty);
+      for (final pid in pids) {
+        await Process.run('kill', ['-9', pid]);
       }
     } else if (Platform.isWindows) {
-      // netstat -> findstr -> taskkill
       final res = await Process.run('netstat', ['-ano']);
       final lines = (res.stdout as String).split('\n');
-      for (var l in lines) {
-        if (l.contains('$_host:$_port')) {
+      for (final l in lines) {
+        if (l.contains('$_port') && l.contains('LISTEN')) {
           final pid = l.trim().split(RegExp(r'\s+')).last;
           await Process.run('taskkill', ['/F', '/PID', pid]);
         }
       }
     }
-  }
-
-  /// Llama a esto cuando cierres la app (quit), si quieres limpiar.
-  Future<void> dispose() async {
-    await _proc?.kill();
-    _timer?.cancel();
   }
 }
