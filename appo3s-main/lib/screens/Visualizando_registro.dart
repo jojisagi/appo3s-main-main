@@ -4,6 +4,8 @@ import '../widgets/creando_conductivity_chart.dart';
 import '../widgets/creando_ph_chart.dart';
 import '../widgets/record_widget_simple.dart';
 import '../models/muestreo.dart';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 
 class VisualizandoRegistros extends StatefulWidget {
   final Text contaminante;
@@ -28,6 +30,7 @@ class VisualizandoRegistros extends StatefulWidget {
   @override
   State<VisualizandoRegistros> createState() => _VisualizandoRegistrosState();
 }
+
 
 class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
@@ -74,14 +77,77 @@ class _GraphsBody extends StatelessWidget {
     required this.concentracion,
   });
 
-  Future<void> _saveToTxt() async {
-    // Implementa tu lógica para guardar en TXT aquí
+Future<void> _saveToTxt(BuildContext context,
+   Text contaminante,
+   Text concentracion,
+   Text fechaHora
+
+
+) async {
+    try {
+      // Pedir al usuario donde guardar
+      String? outputPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Guardar archivo TXT',
+        fileName: 'muestreo_${DateTime.now().millisecondsSinceEpoch}.txt',
+        allowedExtensions: ['txt'],
+      );
+      
+      if (outputPath != null) {
+        final file = File(outputPath);
+        String content = """
+Registro de Muestreo
+=====================
+Contaminante: ${contaminante}
+Concentración: ${concentracion}
+Fecha/Hora: ${fechaHora}
+
+Datos completos:
+${muestreo_ozone.toString()}
+${muestreo_ph.toString()}
+${muestreo_conductivity.toString()}
+""";
+        await file.writeAsString(content);
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Archivo guardado en: $outputPath')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
 
-  Future<void> _saveToCsv() async {
-    // Implementa tu lógica para guardar en CSV aquí
+  // Implementación similar para _saveToCsv()
+  Future<void> _saveToCsv(BuildContext context) async {
+    try {
+      String? outputPath = await FilePicker.platform.saveFile(
+        dialogTitle: 'Guardar archivo CSV',
+        fileName: 'muestreo_${DateTime.now().millisecondsSinceEpoch}.csv',
+        allowedExtensions: ['csv'],
+      );
+      
+      if (outputPath != null) {
+        final file = File(outputPath);
+        StringBuffer content = StringBuffer();
+        content.writeln('Tipo,Fecha,Valor');
+        
+        // Agregar datos al CSV (igual que en el ejemplo anterior)
+        
+        
+        await file.writeAsString(content.toString());
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Archivo CSV guardado en: $outputPath')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    }
   }
-
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -107,7 +173,7 @@ class _GraphsBody extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   ElevatedButton(
-                    onPressed: _saveToTxt,
+                    onPressed: () => _saveToTxt(context, contaminante, concentracion, fechaHora),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       minimumSize: const Size(120, 40),
@@ -118,7 +184,7 @@ class _GraphsBody extends StatelessWidget {
                   const SizedBox(width: 20),
                   
                   ElevatedButton(
-                    onPressed: _saveToCsv,
+                    onPressed: () => _saveToCsv(context),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       minimumSize: const Size(120, 40),
