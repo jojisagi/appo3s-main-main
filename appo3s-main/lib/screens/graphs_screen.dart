@@ -11,39 +11,40 @@ class GraphsScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1- Creamos una instancia y arrancamos el polling
-    final esp = Esp32Service(esp32Ip: '192.168.1.55');   // ⬅️ pon la IP de tu ESP32
-    esp.startPolling();                                  // refresco cada 2 s
+    // 1- Instancia del servicio con la IP de tu ESP32
+    final esp = Esp32Service(
+      esp32Ip       : '192.168.1.55',   // ⬅️ cámbiala por la tuya
+      syncToBackend : true,
+    )..startPolling();
 
     return ChangeNotifierProvider.value(
       value: esp,
-      child: const _Body(),
+      child: const _GraphsBody(),
     );
   }
 }
 
-/// Cuerpo real de la pantalla
-class _Body extends StatelessWidget {
-  const _Body();
+class _GraphsBody extends StatelessWidget {
+  const _GraphsBody();
 
-  // ---------- Gráfica genérica ----------
+  // ------- Widget de gráfica reutilizable --------
   Widget _chart({
     required List<Record> puntos,
     required Color color,
   }) {
     if (puntos.isEmpty) return const Center(child: Text('Sin datos'));
 
-    final spots = puntos
-        .map((r) => FlSpot(
-      r.fechaHora.millisecondsSinceEpoch.toDouble(),
-      r.concentracion,
-    ))
-        .toList();
+    final spots = puntos.map(
+          (r) => FlSpot(
+        r.fechaHora.millisecondsSinceEpoch.toDouble(),
+        r.concentracion,
+      ),
+    ).toList();
 
     return LineChart(
       LineChartData(
         minY: 0,
-        gridData: const FlGridData(show: true, horizontalInterval: .1),
+        gridData  : const FlGridData(show: true, horizontalInterval: .1),
         borderData: FlBorderData(show: true),
         titlesData: FlTitlesData(
           bottomTitles: AxisTitles(
@@ -61,16 +62,16 @@ class _Body extends StatelessWidget {
         ),
         lineBarsData: [
           LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            barWidth: 2,
-            color: color,
-            dotData: FlDotData(show: false),
+            spots    : spots,
+            isCurved : true,
+            barWidth : 2,
+            color    : color,
+            dotData  : FlDotData(show: false),
           ),
         ],
-        // A partir de fl_chart 0.68.x la animación por frames
-        // está en `LineChartData` → animationDuration
       ),
+      duration: const Duration(milliseconds: 150),
+      // swapAnimationCurve: Curves.easeInOut,   // opcional
     );
   }
 
@@ -78,7 +79,6 @@ class _Body extends StatelessWidget {
   Widget build(BuildContext context) {
     final srv  = context.watch<Esp32Service>();
 
-    // Búferes en vivo (pueden ser [] la primera vez)
     final o3   = srv.buffer['o3']   ?? <Record>[];
     final cond = srv.buffer['cond'] ?? <Record>[];
     final ph   = srv.buffer['ph']   ?? <Record>[];
@@ -89,7 +89,7 @@ class _Body extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
-            // ---------- O3 ----------
+            // ---- O₃ tiempo real ----
             SizedBox(
               height: 260,
               child: Card(
@@ -101,8 +101,7 @@ class _Body extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-
-            // ---------- Conductividad y pH ----------
+            // ---- Conductividad & pH ----
             Row(
               children: [
                 Expanded(

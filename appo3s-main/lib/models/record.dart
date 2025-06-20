@@ -1,7 +1,7 @@
 import '../models/muestreo.dart';
 
 class Record {
-  final String tipo; // 'o3', 'cond', 'ph'
+
   final String contaminante;
   final double concentracion;
   final DateTime fechaHora;
@@ -9,8 +9,9 @@ class Record {
   final Muestreo muestreo_ph;
   final Muestreo muestreo_conductivity;
 
+
+
   Record({
-    required this.tipo,
     required this.contaminante,
     required this.concentracion,
     required this.fechaHora,
@@ -22,7 +23,7 @@ class Record {
         muestreo_conductivity = muestreo_conductivity ?? Muestreo();
 
   factory Record.fromJson(Map<String, dynamic> json) => Record(
-        tipo: json['tipo'] as String? ?? 'o3',
+       
         contaminante: json['contaminante'] as String,
         concentracion: (json['concentracion'] as num).toDouble(),
         fechaHora: DateTime.parse(json['fechaHora'] as String),
@@ -39,7 +40,7 @@ class Record {
       );
 
   Map<String, dynamic> toJson() => {
-        'tipo': tipo,
+
         'contaminante': contaminante,
         'concentracion': concentracion,
         'fechaHora': fechaHora.toIso8601String(),
@@ -58,7 +59,7 @@ class Record {
     Muestreo? muestreo_conductivity,
   }) {
     return Record(
-      tipo: tipo ?? this.tipo,
+ 
       contaminante: contaminante ?? this.contaminante,
       concentracion: concentracion ?? this.concentracion,
       fechaHora: fechaHora ?? this.fechaHora,
