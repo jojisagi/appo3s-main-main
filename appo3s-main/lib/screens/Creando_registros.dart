@@ -7,6 +7,8 @@ import '../widgets/record_form.dart';
 import '../widgets/editing_samples.dart';
 import '../models/muestreo.dart';
 
+
+
 class CreandoRegistros extends StatefulWidget {
   const CreandoRegistros({super.key});
 
@@ -15,38 +17,50 @@ class CreandoRegistros extends StatefulWidget {
 }
 
 class _CreandoRegistrosState extends State<CreandoRegistros> {
-   Muestreo muestreo_ozone = Muestreo();
-   
-   Muestreo muestreo_ph = Muestreo();
-   Muestreo muestreo_conductivity = Muestreo();
-   Muestreo muestreo_time = Muestreo();
+  Muestreo muestreo_ozone = Muestreo();
+  Muestreo muestreo_ph = Muestreo();
+  Muestreo muestreo_conductivity = Muestreo();
+  Muestreo muestreo_time = Muestreo();
 
-
-
+  void _iniciarTime(Muestreo otro) {
+    setState(() {
+      muestreo_time = otro.deepCopy();
+      muestreo_ozone.inicializar_con_otro_muestreo(otro);
+      muestreo_ph.inicializar_con_otro_muestreo(otro);
+      muestreo_conductivity.inicializar_con_otro_muestreo(otro);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-      //esta linea es para llenar las muestras con datos de ejemplo***************************************************
-      muestreo_ozone.llenarMuestras();  muestreo_ph.llenarMuestras(); muestreo_conductivity.llenarMuestras();  muestreo_time.llenarMuestras();
-    //**************************************** 
     return Scaffold(
       appBar: AppBar(title: const Text('Gráficas')),
-      body: _GraphsBody(muestreo_ozone: muestreo_ozone, muestreo_ph: muestreo_ph, 
-                        muestreo_conductivity: muestreo_conductivity, muestreo_time: muestreo_time ),
+      body: _GraphsBody(
+        key: ValueKey(muestreo_time.hashCode),
+        muestreo_ozone: muestreo_ozone,
+        muestreo_ph: muestreo_ph,
+        muestreo_conductivity: muestreo_conductivity,
+        muestreo_time: muestreo_time,
+      ),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           FloatingActionButton(
             heroTag: 'EditingSamples',
             child: const Icon(Icons.timer),
-            onPressed: () => showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              builder: (_) => Padding(
-                padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 10),
-                child: EditingSamples(muestreo: muestreo_time),
-              ),
-            ),
+            onPressed: () {
+              showModalBottomSheet(
+                context: context,
+                isScrollControlled: true,
+                builder: (_) => Padding(
+                  padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 10),
+                  child: EditingSamples(
+                    muestreo: muestreo_time.deepCopy(),
+                    onSamplesUpdated: _iniciarTime,
+                  ),
+                ),
+              );
+            },
           ),
           const SizedBox(height: 16),
           FloatingActionButton(
@@ -57,7 +71,11 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
               isScrollControlled: true,
               builder: (_) => Padding(
                 padding: const EdgeInsets.only(bottom: 20, left: 20, right: 20, top: 10),
-                child: RecordForm(),
+                child: RecordForm(
+                  muestreo_ozone: muestreo_ozone,
+                  muestreo_ph: muestreo_ph,
+                  muestreo_conductivity: muestreo_conductivity, 
+                ),
               ),
             ),
           ),
@@ -68,20 +86,19 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
 }
 
 class _GraphsBody extends StatelessWidget {
-     Muestreo muestreo_ozone = Muestreo();
-     Muestreo muestreo_ph = Muestreo();
-     Muestreo muestreo_conductivity = Muestreo();
-     Muestreo muestreo_time = Muestreo();
+  final Muestreo muestreo_ozone;
+  final Muestreo muestreo_ph;
+  final Muestreo muestreo_conductivity;
+  final Muestreo muestreo_time;
 
-   _GraphsBody({
+  const _GraphsBody({
+    super.key,
     required this.muestreo_ozone,
     required this.muestreo_ph,
-    required this.muestreo_conductivity,  
+    required this.muestreo_conductivity,
     required this.muestreo_time,
-    });
+  });
 
-    
-  
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -89,11 +106,8 @@ class _GraphsBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Timer en la parte superior
-          TimerWidget(muestreo: muestreo_ozone),
+          TimerWidget(muestreo: muestreo_time),
           const SizedBox(height: 20),
-          
-          // Gráficas en dos columnas debajo
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -101,22 +115,28 @@ class _GraphsBody extends StatelessWidget {
                 flex: 3,
                 child: Column(
                   children: [
-                     Creando_OzoneChart(muestreo:muestreo_ozone),
-                     SizedBox(height: 12),
-                    //const AUCWidget(),
+                    Creando_OzoneChart(
+                      key: ValueKey(muestreo_ozone.hashCode),
+                      muestreo: muestreo_ozone,
+                    ),
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
-              
               const SizedBox(width: 12),
-              
               Expanded(
                 flex: 2,
                 child: Column(
                   children: [
-                     Creando_ConductivityChart( muestreo: muestreo_conductivity),
+                    Creando_ConductivityChart(
+                      key: ValueKey(muestreo_conductivity.hashCode),
+                      muestreo: muestreo_conductivity,
+                    ),
                     const SizedBox(height: 12),
-                     Creando_PhChart(muestreo:muestreo_ph),
+                    Creando_PhChart(
+                      key: ValueKey(muestreo_ph.hashCode),
+                      muestreo: muestreo_ph,
+                    ),
                   ],
                 ),
               ),

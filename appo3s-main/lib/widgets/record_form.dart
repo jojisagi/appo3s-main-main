@@ -2,9 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
+import '../models/muestreo.dart';
 
 class RecordForm extends StatefulWidget {
-  const RecordForm({super.key});
+
+  Muestreo muestreo_ozone;
+  Muestreo muestreo_ph ;
+  Muestreo muestreo_conductivity;
+
+  RecordForm({
+    super.key,
+    required this.muestreo_ozone,
+    required this.muestreo_ph,
+    required this.muestreo_conductivity,
+  });
 
   @override
   State<RecordForm> createState() => _RecordFormState();
@@ -88,6 +99,9 @@ class _RecordFormState extends State<RecordForm> {
                     contaminante: contaminante,
                     concentracion: concentracion,
                     fechaHora: fechaHora, tipo: '',
+                    muestreo_ozone: widget.muestreo_ozone,
+                    muestreo_ph: widget.muestreo_ph, 
+                    muestreo_conductivity: widget.muestreo_conductivity,
                   ),
                 );
                 Navigator.pop(context); // cierra el formulario

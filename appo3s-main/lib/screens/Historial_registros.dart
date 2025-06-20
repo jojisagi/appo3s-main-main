@@ -147,6 +147,9 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                                                 concentracion: Text(
                                                   '${r.concentracion.toStringAsFixed(2)} ppm',
                                                 ),
+                                                muestreo_ozone: r.muestreo_ozone,
+                                                muestreo_ph: r.muestreo_ph,
+                                                muestreo_conductivity: r.muestreo_conductivity,
                                         )),
                                     
 

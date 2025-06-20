@@ -50,4 +50,14 @@ class Sample {
       y: y ?? this.y,
     );
   }
+
+  Sample copy() {
+    return Sample(
+      numSample: numSample,
+      selectedMinutes: selectedMinutes,
+      selectedSeconds: selectedSeconds,
+      y: y,
+    );
+  }
+
 }

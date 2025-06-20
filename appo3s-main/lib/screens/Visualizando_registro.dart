@@ -9,12 +9,20 @@ class VisualizandoRegistros extends StatefulWidget {
   final Text contaminante;
   final Text concentracion;
   final Text fechaHora;
+  Muestreo muestreo_ozone = Muestreo();
+  Muestreo muestreo_ph= Muestreo();
+   Muestreo muestreo_conductivity = Muestreo();
 
-  const VisualizandoRegistros({
+
+   VisualizandoRegistros({
     super.key,
     required this.fechaHora,
     required this.contaminante,
     required this.concentracion,
+    required this.muestreo_ozone,
+    required this.muestreo_ph,
+    required this.muestreo_conductivity,
+
   });
 
   @override
@@ -22,18 +30,11 @@ class VisualizandoRegistros extends StatefulWidget {
 }
 
 class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
-  late Muestreo muestreo_ozone;
-  late Muestreo muestreo_ph;
-  late Muestreo muestreo_conductivity;
-  late Muestreo muestreo_time;
 
   @override
   void initState() {
     super.initState();
-    muestreo_ozone = Muestreo();
-    muestreo_ph = Muestreo();
-    muestreo_conductivity = Muestreo();
-    muestreo_time = Muestreo();
+   
   }
 
   @override
@@ -41,10 +42,9 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
     return Scaffold(
       appBar: AppBar(title: const Text('Registro')),
       body: _GraphsBody(
-        muestreo_ozone: muestreo_ozone,
-        muestreo_ph: muestreo_ph,
-        muestreo_conductivity: muestreo_conductivity,
-        muestreo_time: muestreo_time,
+        muestreo_ozone: widget.muestreo_ozone,
+        muestreo_ph: widget.muestreo_ph,
+        muestreo_conductivity: widget.muestreo_conductivity,
         fechaHora: widget.fechaHora,
         contaminante: widget.contaminante,
         concentracion: widget.concentracion,
@@ -61,7 +61,6 @@ class _GraphsBody extends StatelessWidget {
   final Muestreo muestreo_ozone;
   final Muestreo muestreo_ph;
   final Muestreo muestreo_conductivity;
-  final Muestreo muestreo_time;
   final Text contaminante;
   final Text concentracion;
   final Text fechaHora;
@@ -70,7 +69,6 @@ class _GraphsBody extends StatelessWidget {
     required this.muestreo_ozone,
     required this.muestreo_ph,
     required this.muestreo_conductivity,
-    required this.muestreo_time,
     required this.fechaHora,
     required this.contaminante,
     required this.concentracion,
