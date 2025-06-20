@@ -1,3 +1,4 @@
+//record_form.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/record.dart';
@@ -47,8 +48,19 @@ class _RecordFormState extends State<RecordForm> {
               decoration: const InputDecoration(labelText: 'Concentración (ppm)'),
               keyboardType: TextInputType.number,
               onSaved: (v) => concentracion = double.tryParse(v ?? '0') ?? 0,
-              validator: (v) =>
-              v == null || v.isEmpty ? 'Campo requerido' : null,
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) {
+                  return 'Campo requerido';
+                }
+                final valor = double.tryParse(v);
+                if (valor == null) {
+                  return 'Ingrese un número válido';
+                }
+                if (valor < 0) {
+                  return 'Debe ser un valor positivo';
+                }
+                return null;
+              },
             ),
             const SizedBox(height: 16),
             ElevatedButton.icon(
@@ -98,9 +110,9 @@ class _RecordFormState extends State<RecordForm> {
                   Record(
                     contaminante: contaminante,
                     concentracion: concentracion,
-                    fechaHora: fechaHora, 
+                    fechaHora: fechaHora,
                     muestreo_ozone: widget.muestreo_ozone,
-                    muestreo_ph: widget.muestreo_ph, 
+                    muestreo_ph: widget.muestreo_ph,
                     muestreo_conductivity: widget.muestreo_conductivity,
                   ),
                 );
