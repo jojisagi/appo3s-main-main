@@ -98,7 +98,7 @@ class _RecordFormState extends State<RecordForm> {
                   Record(
                     contaminante: contaminante,
                     concentracion: concentracion,
-                    fechaHora: fechaHora, tipo: '',
+                    fechaHora: fechaHora, 
                     muestreo_ozone: widget.muestreo_ozone,
                     muestreo_ph: widget.muestreo_ph, 
                     muestreo_conductivity: widget.muestreo_conductivity,

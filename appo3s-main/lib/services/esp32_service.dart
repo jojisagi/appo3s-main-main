@@ -94,7 +94,7 @@ class Esp32Service extends ChangeNotifier {
     final list = buffer[key]!;
     list.add(
       Record(
-        tipo          : key,
+       
         contaminante  : key,
         concentracion : value.toDouble(),
         fechaHora     : DateTime.tryParse(ts) ?? DateTime.now(),
