@@ -139,8 +139,10 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                                     MaterialPageRoute(builder: (_) =>  VisualizandoRegistros(
                                         
                                          fechaHora: Text(
-                                                  DateFormat.jm().format(r.fechaHora),
+                                                  DateFormat.yMd().format(r.fechaHora)  + ' - '  + DateFormat.jm().format(r.fechaHora),
                                                 ),
+
+                                              
                                                 contaminante: Text(
                                                   r.contaminante,  
                                                 ),

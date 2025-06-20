@@ -74,6 +74,14 @@ class _GraphsBody extends StatelessWidget {
     required this.concentracion,
   });
 
+  Future<void> _saveToTxt() async {
+    // Implementa tu lógica para guardar en TXT aquí
+  }
+
+  Future<void> _saveToCsv() async {
+    // Implementa tu lógica para guardar en CSV aquí
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -81,12 +89,50 @@ class _GraphsBody extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Widget de registro
           record_widget_simple(
             contaminante: contaminante,
             concentracion: concentracion,
             fechaHora: fechaHora,
           ),
+          
           const SizedBox(height: 20),
+          
+          // Contenedor para los botones centrados
+          Center(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ElevatedButton(
+                    onPressed: _saveToTxt,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      minimumSize: const Size(120, 40),
+                    ),
+                    child: const Text('Guardar en txt', style: TextStyle(fontSize: 14)),
+                  ),
+                  
+                  const SizedBox(width: 20),
+                  
+                  ElevatedButton(
+                    onPressed: _saveToCsv,
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      minimumSize: const Size(120, 40),
+                    ),
+                    child: const Text('Guardar en csv', style: TextStyle(fontSize: 14)),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: 20),
+          
+          // Gráficos
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
