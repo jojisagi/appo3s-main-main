@@ -1,11 +1,18 @@
 import 'dart:async';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../services/record_service.dart';
+
 import '../models/record.dart';
-import '../screens/Visualizando_registro.dart';
-import '../screens/Creando_registros.dart';
+import '../services/record_service.dart';
+import '../screens/visualizando_registro.dart';
+
+// ------------ import condicional: sólo desktop arranca backend -------------
+import '../utils/backend_launcher_io.dart'
+if (dart.library.html) '../utils/backend_launcher_stub.dart';
+
 class HistorialRegistros extends StatefulWidget {
   const HistorialRegistros({super.key});
 
@@ -17,13 +24,24 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
   DateTime? selectedDate;
   bool _loading = true;
   String? _error;
-  Timer? _poller;                       // 👈  Timer para refresco
+  Timer? _poller;
 
+  // ───────────── INIT ─────────────
   @override
   void initState() {
     super.initState();
-    _fetch();
-    _poller = Timer.periodic(            // 👈  cada 15 s
+    _initAndFetch();          // 👈
+  }
+
+  Future<void> _initAndFetch() async {
+    // 1) Arranca backend si procede (sólo desktop)
+    if (!kIsWeb) await BackendLauncher.launchIfNeeded();
+
+    // 2) Descarga registros
+    await _fetch();
+
+    // 3) Refresco automático cada 15 s
+    _poller = Timer.periodic(
       const Duration(seconds: 15),
           (_) => context.read<RecordService>().fetchAll(),
     );
@@ -31,10 +49,11 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
 
   @override
   void dispose() {
-    _poller?.cancel();                  // 👈  cancelamos al salir
+    _poller?.cancel();
     super.dispose();
   }
 
+  // ───────────── DESCARGA ─────────────
   Future<void> _fetch() async {
     try {
       await context.read<RecordService>().fetchAll();
@@ -45,14 +64,13 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
     }
   }
 
+  // ───────────── UI ─────────────
   @override
   Widget build(BuildContext context) {
-    final rs = context.watch<RecordService>();
-    final registros = selectedDate == null
-        ? rs.records
-        : rs.byDate(selectedDate!);
+    final rs        = context.watch<RecordService>();
+    final registros = selectedDate == null ? rs.records : rs.byDate(selectedDate!);
 
-    // —— Agrupamos por día (AAAA-MM-DD) ——
+    // Agrupamos por día (YYYY-MM-DD)
     final mapa = <String, List<Record>>{};
     for (final r in registros) {
       final clave = DateFormat('yyyy-MM-dd').format(r.fechaHora);
@@ -61,14 +79,19 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
     final dias = mapa.keys.toList()..sort((a, b) => b.compareTo(a)); // Desc.
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Historial de registros'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text('Historial de registros'),
+        centerTitle: true,
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text('Error: $_error', style: const TextStyle(color: Colors.red)))
+          ? Center(
+          child: Text('Error: $_error',
+              style: const TextStyle(color: Colors.red)))
           : Column(
         children: [
-          // —— Filtro por fecha + recargar manual ——
+          // ── Barra de filtro y recarga manual ──
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Row(
@@ -76,11 +99,9 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                 Expanded(
                   child: TextButton.icon(
                     icon: const Icon(Icons.filter_alt_outlined),
-                    label: Text(
-                      selectedDate == null
-                          ? 'Filtrar por fecha'
-                          : DateFormat.yMd().format(selectedDate!),
-                    ),
+                    label: Text(selectedDate == null
+                        ? 'Filtrar por fecha'
+                        : DateFormat.yMd().format(selectedDate!)),
                     onPressed: () async {
                       final d = await showDatePicker(
                         context: context,
@@ -88,7 +109,9 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                         firstDate: DateTime(2020),
                         lastDate: DateTime(2100),
                       );
-                      if (d != null) setState(() => selectedDate = d);
+                      if (d != null) {
+                        setState(() => selectedDate = d);
+                      }
                     },
                   ),
                 ),
@@ -102,7 +125,8 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
               ],
             ),
           ),
-          // —— Lista agrupada ——
+
+          // ── Lista agrupada ──
           Expanded(
             child: dias.isEmpty
                 ? const Center(child: Text('Sin registros'))
@@ -110,7 +134,7 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
               padding: const EdgeInsets.all(12),
               itemCount: dias.length,
               itemBuilder: (_, index) {
-                final dia = dias[index];
+                final dia   = dias[index];
                 final lista = mapa[dia]!;
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -118,7 +142,8 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Text(
-                        DateFormat.yMMMMd().format(DateTime.parse(dia)),
+                        DateFormat.yMMMMd()
+                            .format(DateTime.parse(dia)),
                         style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16),
@@ -126,47 +151,40 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                     ),
                     ...lista.map(
                           (r) => Column(
-                        
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
                         children: [
-                          // Botón para visualizar el registro
-                        ElevatedButton(
-                          
-                        
-
+                          ElevatedButton(
                             onPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(builder: (_) =>  VisualizandoRegistros(
-                                        
-                                         fechaHora: Text(
-                                                  DateFormat.yMd().format(r.fechaHora)  + ' - '  + DateFormat.jm().format(r.fechaHora),
-                                                ),
-
-                                              
-                                                contaminante: Text(
-                                                  r.contaminante,  
-                                                ),
-                                                concentracion: Text(
-                                                  '${r.concentracion.toStringAsFixed(2)} ppm',
-                                                ),
-                                                muestreo_ozone: r.muestreo_ozone,
-                                                muestreo_ph: r.muestreo_ph,
-                                                muestreo_conductivity: r.muestreo_conductivity,
-                                        )),
-                                    
-
-                                    
-                                  ),
-                          child: ListTile(
-                          title: Text(r.contaminante),
-                          subtitle: Text(DateFormat.jm().format(r.fechaHora)),
-                          trailing: Text('${r.concentracion} ppm'),
-                        ),
-                        ),
-                        
-                         const SizedBox(height: 6),  // Reducido de 8
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    VisualizandoRegistros(
+                                      fechaHora: Text(
+                                        '${DateFormat.yMd().format(r.fechaHora)} - '
+                                            '${DateFormat.jm().format(r.fechaHora)}',
+                                      ),
+                                      contaminante: Text(r.contaminante),
+                                      concentracion: Text(
+                                        '${r.concentracion.toStringAsFixed(2)} ppm',
+                                      ),
+                                      muestreo_ozone: r.muestreo_ozone,
+                                      muestreo_ph: r.muestreo_ph,
+                                      muestreo_conductivity:
+                                      r.muestreo_conductivity,
+                                    ),
+                              ),
+                            ),
+                            child: ListTile(
+                              title: Text(r.contaminante),
+                              subtitle:
+                              Text(DateFormat.jm().format(r.fechaHora)),
+                              trailing:
+                              Text('${r.concentracion} ppm'),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
                         ],
-                        
                       ),
                     ),
                   ],

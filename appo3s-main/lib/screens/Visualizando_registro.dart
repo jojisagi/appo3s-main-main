@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'dart:html' as html;
 import '../widgets/creando_ozone_chart.dart';
 import '../widgets/creando_conductivity_chart.dart';
 import '../widgets/creando_ph_chart.dart';
 import '../widgets/record_widget_simple.dart';
 import '../models/muestreo.dart';
-import 'dart:io';
-import 'package:file_picker/file_picker.dart';
 
 class VisualizandoRegistros extends StatefulWidget {
   final Text contaminante;
   final Text concentracion;
   final Text fechaHora;
   Muestreo muestreo_ozone = Muestreo();
-  Muestreo muestreo_ph= Muestreo();
-   Muestreo muestreo_conductivity = Muestreo();
+  Muestreo muestreo_ph = Muestreo();
+  Muestreo muestreo_conductivity = Muestreo();
 
-
-   VisualizandoRegistros({
+  VisualizandoRegistros({
     super.key,
     required this.fechaHora,
     required this.contaminante,
@@ -24,22 +23,13 @@ class VisualizandoRegistros extends StatefulWidget {
     required this.muestreo_ozone,
     required this.muestreo_ph,
     required this.muestreo_conductivity,
-
   });
 
   @override
   State<VisualizandoRegistros> createState() => _VisualizandoRegistrosState();
 }
 
-
 class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
-
-  @override
-  void initState() {
-    super.initState();
-   
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,10 +41,6 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
         fechaHora: widget.fechaHora,
         contaminante: widget.contaminante,
         concentracion: widget.concentracion,
-      ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [],
       ),
     );
   }
@@ -77,77 +63,43 @@ class _GraphsBody extends StatelessWidget {
     required this.concentracion,
   });
 
-Future<void> _saveToTxt(BuildContext context,
-   Text contaminante,
-   Text concentracion,
-   Text fechaHora
-
-
-) async {
-    try {
-      // Pedir al usuario donde guardar
-      String? outputPath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Guardar archivo TXT',
-        fileName: 'muestreo_${DateTime.now().millisecondsSinceEpoch}.txt',
-        allowedExtensions: ['txt'],
-      );
-      
-      if (outputPath != null) {
-        final file = File(outputPath);
-        String content = """
+  void _saveToTxtWeb() {
+    final String content = """
 Registro de Muestreo
 =====================
-Contaminante: ${contaminante}
-Concentración: ${concentracion}
-Fecha/Hora: ${fechaHora}
+Contaminante: ${contaminante.data}
+Concentración: ${concentracion.data}
+Fecha/Hora: ${fechaHora.data}
 
 Datos completos:
 ${muestreo_ozone.toString()}
 ${muestreo_ph.toString()}
 ${muestreo_conductivity.toString()}
 """;
-        await file.writeAsString(content);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Archivo guardado en: $outputPath')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
+
+    final bytes = utf8.encode(content);
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", "muestreo_${DateTime.now().millisecondsSinceEpoch}.txt")
+      ..click();
+    html.Url.revokeObjectUrl(url);
   }
 
-  // Implementación similar para _saveToCsv()
-  Future<void> _saveToCsv(BuildContext context) async {
-    try {
-      String? outputPath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Guardar archivo CSV',
-        fileName: 'muestreo_${DateTime.now().millisecondsSinceEpoch}.csv',
-        allowedExtensions: ['csv'],
-      );
-      
-      if (outputPath != null) {
-        final file = File(outputPath);
-        StringBuffer content = StringBuffer();
-        content.writeln('Tipo,Fecha,Valor');
-        
-        // Agregar datos al CSV (igual que en el ejemplo anterior)
-        
-        
-        await file.writeAsString(content.toString());
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Archivo CSV guardado en: $outputPath')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
+  void _saveToCsvWeb() {
+    final StringBuffer content = StringBuffer();
+    content.writeln('Contaminante,Concentración,Fecha/Hora');
+    content.writeln('${contaminante.data},${concentracion.data},${fechaHora.data}');
+
+    final bytes = utf8.encode(content.toString());
+    final blob = html.Blob([bytes]);
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    final anchor = html.AnchorElement(href: url)
+      ..setAttribute("download", "muestreo_${DateTime.now().millisecondsSinceEpoch}.csv")
+      ..click();
+    html.Url.revokeObjectUrl(url);
   }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -161,30 +113,26 @@ ${muestreo_conductivity.toString()}
             concentracion: concentracion,
             fechaHora: fechaHora,
           ),
-          
           const SizedBox(height: 20),
-          
-          // Contenedor para los botones centrados
+
+          // Botones para guardar
           Center(
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   ElevatedButton(
-                    onPressed: () => _saveToTxt(context, contaminante, concentracion, fechaHora),
+                    onPressed: _saveToTxtWeb,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       minimumSize: const Size(120, 40),
                     ),
                     child: const Text('Guardar en txt', style: TextStyle(fontSize: 14)),
                   ),
-                  
                   const SizedBox(width: 20),
-                  
                   ElevatedButton(
-                    onPressed: () => _saveToCsv(context),
+                    onPressed: _saveToCsvWeb,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                       minimumSize: const Size(120, 40),
@@ -195,10 +143,10 @@ ${muestreo_conductivity.toString()}
               ),
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
-          // Gráficos
+
+          // Gráficas
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
