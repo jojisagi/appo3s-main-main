@@ -148,3 +148,12 @@ class _GraphsBody extends StatelessWidget {
     );
   }
 }
+
+//al hacer set no deje iniciar y que el set se pase automaticamente al muestreo de todas las tablas y que ya
+// cuando lo inicie puedo añadir tiempo y a menos que no seacabe el tiempo no puedo ingresar registros
+// ejemplo: timer 1:30 no puedo agregar nada antes del 1.30 sino más
+//funcion vacía: si el timer llega a una cuenta que es igual al tiempo de muestreo que jale un valor random como prueba para despues pasarlo en tiempo real
+//ya que quede hacer la prueba real
+
+//para el historial de registro que se vea poco a poco como se va construyendo cómo ya jaló de la bd, toma en cuenta iniciar el timer y que cuando corresponda del tiempo de muestreo ponga
+// el dato y que ya guardó en el mongo
