@@ -108,40 +108,31 @@ class _GraphsBody extends StatelessWidget {
         children: [
           TimerWidget(muestreo: muestreo_time),
           const SizedBox(height: 20),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                flex: 10,
-                child: Column(
-                  children: [
-                    Creando_OzoneChart(
-                      key: ValueKey(muestreo_ozone.hashCode),
-                      muestreo: muestreo_ozone,
-                    ),
-                    const SizedBox(height: 12),
-                  ],
-                ),
+              // --- Gráfica de Ozono ---
+              Creando_OzoneChart(
+                key: ValueKey(muestreo_ozone.hashCode),
+                muestreo: muestreo_ozone,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 5,
-                child: Column(
-                  children: [
-                    Creando_ConductivityChart(
-                      key: ValueKey(muestreo_conductivity.hashCode),
-                      muestreo: muestreo_conductivity,
-                    ),
-                    const SizedBox(height: 20),
-                    Creando_PhChart(
-                      key: ValueKey(muestreo_ph.hashCode),
-                      muestreo: muestreo_ph,
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 20),
+
+              // --- Gráfica de Conductividad ---
+              Creando_ConductivityChart(
+                key: ValueKey(muestreo_conductivity.hashCode),
+                muestreo: muestreo_conductivity,
+              ),
+              const SizedBox(height: 20),
+
+              // --- Gráfica de pH ---
+              Creando_PhChart(
+                key: ValueKey(muestreo_ph.hashCode),
+                muestreo: muestreo_ph,
               ),
             ],
           ),
+
         ],
       ),
     );

@@ -39,7 +39,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
   @override
   void initState() {
     super.initState();
-   
+
   }
 
   @override
@@ -116,9 +116,9 @@ Future<void> _saveToCsv(BuildContext context) async {
             concentracion: concentracion,
             fechaHora: fechaHora,
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Contenedor para los botones centrados
           Center(
             child: Container(
@@ -135,9 +135,9 @@ Future<void> _saveToCsv(BuildContext context) async {
                     ),
                     child: const Text('Guardar en txt', style: TextStyle(fontSize: 14)),
                   ),
-                  
+
                   const SizedBox(width: 20),
-                  
+
                   ElevatedButton(
                     onPressed: () => _saveToCsv(context),
                     style: ElevatedButton.styleFrom(
@@ -150,35 +150,47 @@ Future<void> _saveToCsv(BuildContext context) async {
               ),
             ),
           ),
-          
+
           const SizedBox(height: 20),
-          
+
           // Gráficos
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(
-                flex: 3,
-                child: Column(
-                  children: [
-                    Creando_OzoneChart(muestreo: muestreo_ozone),
-                    const SizedBox(height: 12),
-                  ],
+              /* ────── O₃ (toma todo el ancho) ────── */
+              Expanded(                      // o SizedBox(height: 260) si prefieres altura fija
+                flex: 1,                     // opcional: lo hace más alto que los de abajo
+                child: Creando_OzoneChart(
+                  muestreo: muestreo_ozone,
+                  key: ValueKey(muestreo_ozone.hashCode),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 4,
-                child: Column(
+              const SizedBox(height: 12),
+
+              /* ────── fila con Conduct y pH ────── */
+              Expanded(                      // ocupa el resto del espacio vertical
+                flex: 1,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Creando_ConductivityChart(muestreo: muestreo_conductivity),
-                    const SizedBox(height: 12),
-                    Creando_PhChart(muestreo: muestreo_ph),
+                    Expanded(
+                      child: Creando_ConductivityChart(
+                        muestreo: muestreo_conductivity,
+                        key: ValueKey(muestreo_conductivity.hashCode),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Creando_PhChart(
+                        muestreo: muestreo_ph,
+                        key: ValueKey(muestreo_ph.hashCode),
+                      ),
+                    ),
                   ],
                 ),
               ),
             ],
-          ),
+          )
         ],
       ),
     );
