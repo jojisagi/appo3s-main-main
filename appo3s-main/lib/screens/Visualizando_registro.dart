@@ -157,40 +157,37 @@ Future<void> _saveToCsv(BuildContext context) async {
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              /* ────── O₃ (toma todo el ancho) ────── */
-              Expanded(                      // o SizedBox(height: 260) si prefieres altura fija
-                flex: 1,                     // opcional: lo hace más alto que los de abajo
-                child: Creando_OzoneChart(
-                  muestreo: muestreo_ozone,
-                  key: ValueKey(muestreo_ozone.hashCode),
-                ),
+              // --- Gráfica de Ozono ---
+              Creando_OzoneChart(
+                key: ValueKey(muestreo_ozone.hashCode),
+                muestreo: muestreo_ozone,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
 
-              /* ────── fila con Conduct y pH ────── */
-              Expanded(                      // ocupa el resto del espacio vertical
-                flex: 1,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Creando_ConductivityChart(
-                        muestreo: muestreo_conductivity,
-                        key: ValueKey(muestreo_conductivity.hashCode),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Creando_PhChart(
-                        muestreo: muestreo_ph,
-                        key: ValueKey(muestreo_ph.hashCode),
-                      ),
-                    ),
-                  ],
+              // --- Gráfica de Conductividad ---
+              Row(
+              children: [
+                // --- Gráfica de Conductividad ---
+                Expanded(
+                  child: Creando_ConductivityChart(
+                    key: ValueKey(muestreo_conductivity.hashCode),
+                    muestreo: muestreo_conductivity,
+                  ),
                 ),
-              ),
+                const SizedBox(width: 20), // Espacio horizontal entre gráficas
+                
+                // --- Gráfica de pH ---
+                Expanded(
+                  child: Creando_PhChart(
+                    key: ValueKey(muestreo_ph.hashCode),
+                    muestreo: muestreo_ph,
+                  ),
+                ),
+              ],
+            ),
+              const SizedBox(height: 20),
             ],
-          )
+          ),
         ],
       ),
     );

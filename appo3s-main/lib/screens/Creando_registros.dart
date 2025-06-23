@@ -119,17 +119,27 @@ class _GraphsBody extends StatelessWidget {
               const SizedBox(height: 20),
 
               // --- Gráfica de Conductividad ---
-              Creando_ConductivityChart(
-                key: ValueKey(muestreo_conductivity.hashCode),
-                muestreo: muestreo_conductivity,
-              ),
+              Row(
+              children: [
+                // --- Gráfica de Conductividad ---
+                Expanded(
+                  child: Creando_ConductivityChart(
+                    key: ValueKey(muestreo_conductivity.hashCode),
+                    muestreo: muestreo_conductivity,
+                  ),
+                ),
+                const SizedBox(width: 20), // Espacio horizontal entre gráficas
+                
+                // --- Gráfica de pH ---
+                Expanded(
+                  child: Creando_PhChart(
+                    key: ValueKey(muestreo_ph.hashCode),
+                    muestreo: muestreo_ph,
+                  ),
+                ),
+              ],
+            ),
               const SizedBox(height: 20),
-
-              // --- Gráfica de pH ---
-              Creando_PhChart(
-                key: ValueKey(muestreo_ph.hashCode),
-                muestreo: muestreo_ph,
-              ),
             ],
           ),
 
