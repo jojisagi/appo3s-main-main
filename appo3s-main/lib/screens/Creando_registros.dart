@@ -112,7 +112,7 @@ class _GraphsBody extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                flex: 3,
+                flex: 10,
                 child: Column(
                   children: [
                     Creando_OzoneChart(
@@ -125,14 +125,14 @@ class _GraphsBody extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                flex: 2,
+                flex: 5,
                 child: Column(
                   children: [
                     Creando_ConductivityChart(
                       key: ValueKey(muestreo_conductivity.hashCode),
                       muestreo: muestreo_conductivity,
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 20),
                     Creando_PhChart(
                       key: ValueKey(muestreo_ph.hashCode),
                       muestreo: muestreo_ph,

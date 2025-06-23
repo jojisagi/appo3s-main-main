@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'historial_registros.dart';
 import 'creando_registros.dart';
-import 'graphs_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});

@@ -168,7 +168,7 @@ Future<void> _saveToCsv(BuildContext context) async {
               ),
               const SizedBox(width: 12),
               Expanded(
-                flex: 2,
+                flex: 4,
                 child: Column(
                   children: [
                     Creando_ConductivityChart(muestreo: muestreo_conductivity),
