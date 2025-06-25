@@ -6,7 +6,6 @@ import '../models/sample.dart';
 
 class Creando_PhChart extends StatelessWidget {
   final Muestreo muestreo;
-
   const Creando_PhChart({super.key, required this.muestreo});
 
   @override
@@ -15,17 +14,24 @@ class Creando_PhChart extends StatelessWidget {
     final List<Sample> samples = muestreo.samples;
 
     /* ────────── SIN DATOS ────────── */
-    if (samples.isEmpty) {
-      return _empty(context, emphColor);
-    }
+    if (samples.isEmpty) return _empty(context, emphColor);
 
     /* ────────── puntos ────────── */
-    final spots = samples
+    // 1. lista original convertida a FlSpot
+    final original = samples
         .map((s) => FlSpot(
       (s.selectedMinutes * 60 + s.selectedSeconds).toDouble(),
       s.y ?? 0.0,
     ))
         .toList();
+
+    // 2. si el primer dato NO está en t=0, añadimos un “punto fantasma”
+    final List<FlSpot> spots;
+    if (original.first.x == 0) {
+      spots = original;
+    } else {
+      spots = [FlSpot(0, original.first.y)]..addAll(original);
+    }
 
     /* ────────── stats rápidas ────────── */
     final ys   = samples.map((e) => e.y ?? 0.0).toList();
@@ -48,40 +54,47 @@ class Creando_PhChart extends StatelessWidget {
           aspectRatio: 16 / 9,
           child: LineChart(
             LineChartData(
-              // --- escalas solicitadas ---
-              minX: spots.first.x,
+              minX: 0,
               maxX: spots.last.x,
               minY: 0,
               maxY: 14,
 
               gridData: const FlGridData(
                 show: true,
-                horizontalInterval: 1,      // cada 1 pH
+                horizontalInterval: 1, // cada 1 pH
               ),
 
               lineBarsData: [
                 LineChartBarData(
-                  spots: spots,
+                  spots   : spots,
                   isCurved: true,
                   barWidth: 2,
-                  color: Colors.blue,
-                  dotData: const FlDotData(show: true),
+                  color   : Colors.blue,
+                  dotData : const FlDotData(show: true),
                   belowBarData: BarAreaData(
-                    show: true,
+                    show : true,
                     color: emphColor.withOpacity(.25),
                   ),
                 ),
               ],
 
               titlesData: FlTitlesData(
-                /* — eje X en mm:ss — */
+                /* — eje X etiquetado en mm:ss — */
                 bottomTitles: AxisTitles(
+                  axisNameWidget: const Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: Text(
+                      'min:seg', // o  'µS/cm'
+                      style:
+                      TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                    ),
+                  ),
                   sideTitles: SideTitles(
                     showTitles: true,
                     interval: ((spots.last.x - spots.first.x) / 8)
                         .clamp(1, double.infinity),
                     getTitlesWidget: (v, _) {
-                      final m = (v ~/ 60);
+                      final m = v ~/ 60;
                       final s = (v % 60).toInt();
                       return Text('$m:${s.toString().padLeft(2, '0')}',
                           style: const TextStyle(fontSize: 10));
@@ -89,7 +102,7 @@ class Creando_PhChart extends StatelessWidget {
                     reservedSize: 32,
                   ),
                 ),
-                /* — eje Y etiquetado cada 1 pH — */
+                /* — eje Y cada unidad de pH — */
                 leftTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
@@ -103,7 +116,7 @@ class Creando_PhChart extends StatelessWidget {
                 ),
                 rightTitles:
                 const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles:
+                topTitles :
                 const AxisTitles(sideTitles: SideTitles(showTitles: false)),
               ),
 
@@ -148,19 +161,19 @@ class Creando_PhChart extends StatelessWidget {
     ],
   );
 
-  Widget _statCard(BuildContext context, String title, String value) => Card(
+  Widget _statCard(BuildContext context, String t, String v) => Card(
     elevation: 2,
     child: Padding(
       padding: const EdgeInsets.all(8),
       child: Column(
         children: [
-          Text(title,
+          Text(t,
               style: Theme.of(context)
                   .textTheme
                   .labelSmall
                   ?.copyWith(color: Colors.grey[600])),
           const SizedBox(height: 4),
-          Text(value,
+          Text(v,
               style: Theme.of(context)
                   .textTheme
                   .bodyLarge

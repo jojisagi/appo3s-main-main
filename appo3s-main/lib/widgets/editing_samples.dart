@@ -38,13 +38,13 @@ class _EditingSamplesState extends State<EditingSamples> {
       return Sample(
         numSample: 1,
         selectedMinutes: 0,
-        selectedSeconds: 30,
+        selectedSeconds: 5,
         y: 0.0,
       );
     } else {
       final lastSample = widget.muestreo.getSample(widget.muestreo.count - 1);
       var newMinutes = lastSample.selectedMinutes;
-      var newSeconds = lastSample.selectedSeconds + 30;
+      var newSeconds = lastSample.selectedSeconds + 5;
       
       if (newSeconds >= 60) {
         newMinutes += newSeconds ~/ 60;

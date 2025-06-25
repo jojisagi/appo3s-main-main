@@ -60,4 +60,12 @@ class Sample {
     );
   }
 
+   Sample deepCopy() => Sample(
+     numSample       : numSample,
+     selectedMinutes : selectedMinutes,
+     selectedSeconds : selectedSeconds,
+     y               : y,
+   );
+
+
 }
