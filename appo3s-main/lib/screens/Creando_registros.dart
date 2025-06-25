@@ -61,7 +61,6 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     setState(() {});
   }
 
-/* ───────── inyección demo ───────── */
   void _injectMockValuesIfNeeded() {
     if (_timePattern.index_actual >= _timePattern.count) {
       _formEnabled = true;
@@ -69,20 +68,28 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
       return;
     }
 
-    final s = _timePattern.getSample(_timePattern.index_actual);
-    final targetSec = s.selectedMinutes * 60 + s.selectedSeconds;
+    final s = _timePattern[_timePattern.index_actual];
+    final target = s.selectedMinutes * 60 + s.selectedSeconds;
 
-    if (_elapsed.inSeconds >= targetSec) {
+    if (_elapsed.inSeconds >= target) {
+      // --- DEMO: lecturas aleatorias --------------------------
       final m   = s.selectedMinutes;
       final sec = s.selectedSeconds;
 
-      _ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble());
-      _ph          .actualizarMuestras_time(m, sec, 1 + _rnd.nextDouble()*13);
-      _conductivity.actualizarMuestras_time(m, sec, _rnd.nextDouble()*2000);
+      _ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble() * 1.0);
+      _ph          .actualizarMuestras_time(m, sec, 1 + _rnd.nextDouble() * 13);
+      _conductivity.actualizarMuestras_time(m, sec, _rnd.nextDouble() * 2000);
+      _timePattern.index_actual++;                // avanza al siguiente punto
 
-      _timePattern.index_actual++;
+      //para valores reales/*final realO₃  = miSensor.ozone;
+      // ppmfinal realPh  = miSensor.ph;           /
+      // / 1-14final realCond= miSensor.conductivity; // µS/cm */
+
+      /* ⟵⟵⟵  REFRESCO INMEDIATO  ⟵⟵⟵ */
+      if (mounted) setState(() {});               // <─── NUEVO
     }
   }
+
 
   @override
   void dispose() {
@@ -123,15 +130,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
           ),
         ),
         const SizedBox(height: 16),
-        FloatingActionButton.extended(
-          heroTag : 'Start',
-          icon    : const Icon(Icons.play_arrow),
-          label   : const Text('Start'),
-          backgroundColor:
-          _patternSet && !_started ? Theme.of(context).colorScheme.primary
-              : Colors.grey,
-          onPressed: _patternSet && !_started ? _onStart : null,
-        ),
+
         const SizedBox(height: 16),
         FloatingActionButton.extended(
           heroTag : 'Record',
