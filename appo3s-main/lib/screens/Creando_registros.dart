@@ -10,6 +10,7 @@ import '../widgets/creando_ph_chart.dart';
 import '../widgets/editing_samples.dart';
 import '../widgets/record_form.dart';
 import '../widgets/timer_widget.dart';
+import '../services/esp32_por_cable.dart';
 
 class CreandoRegistros extends StatefulWidget {
   const CreandoRegistros({super.key});
@@ -24,6 +25,14 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
   final Muestreo _ph           = Muestreo();
   final Muestreo _conductivity = Muestreo();
   final Muestreo _timePattern  = Muestreo();             // pauta general
+
+  final SerialService serial = SerialService(
+    onTemperatura: (double temp) {
+      print("Valor desde main: $temp");
+      
+      // Aquí puedes guardar, graficar, enviar, etc.
+    },
+  );
 
   /* ───────── Control de estado ───────── */
   bool    _patternSet   = false;   // se pulsó “Set” en EditingSamples
@@ -66,6 +75,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
       _injectMockValuesIfNeeded();
     });
     setState(() {});
+    serial.iniciar(); // <- Inicia al arrancar la app
   }
 
   /* =========================================================
@@ -83,22 +93,20 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     final targetSec = s.selectedMinutes * 60 + s.selectedSeconds;
 
     if (_elapsed.inSeconds >= targetSec) {
-      // ——— modo demo: aleatorios ———
       final m = s.selectedMinutes;
       final sec = s.selectedSeconds;
 
       _ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble() * 1.0);      // 0-1 ppm
       _ph          .actualizarMuestras_time(m, sec, 1 + _rnd.nextDouble() * 13.0); // 1-14
-      _conductivity.actualizarMuestras_time(m, sec, _rnd.nextDouble() * 2000);     // 0-2000 µS
 
-      //para valores reales
-      /*
-      final realO₃  = miSensor.ozone;        // ppm
-      final realPh  = miSensor.ph;           // 1-14
-      final realCond= miSensor.conductivity; // µS/cm
-       */
+      final temp = serial.ultimaTemperatura;
 
-      _timePattern.index_actual++;   // pasa al siguiente instante
+      if (temp != null) {
+        _conductivity.actualizarMuestras_time(m, sec, temp);
+        _timePattern.index_actual++;   // pasa al siguiente instante solo si hay temp
+      } else {
+        print("Esperando temperatura real del ESP32...");
+      }
     }
   }
 
@@ -153,11 +161,11 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
             icon    : const Icon(Icons.play_arrow),
             label   : const Text('Start'),
             backgroundColor:
-            _patternSet && !_started ? Theme.of(context).colorScheme.primary
-                : Colors.grey,
+              _patternSet && !_started ? Theme.of(context).colorScheme.primary
+              : Colors.grey,
             onPressed: _patternSet && !_started
                 ? _onStart
-                : null,                      // deshabilitado visualmente
+                : null,
           ),
           const SizedBox(height: 16),
 
@@ -167,27 +175,27 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
             icon    : const Icon(Icons.check),
             label   : const Text('Capturar'),
             backgroundColor:
-            _formEnabled ? Theme.of(context).colorScheme.primary
-                : Colors.grey,
+              _formEnabled ? Theme.of(context).colorScheme.primary
+              : Colors.grey,
             onPressed: _formEnabled
                 ? () => showModalBottomSheet(
-              context           : context,
-              isScrollControlled: true,
-              builder           : (_) => Padding(
-                padding: const EdgeInsets.only(
-                    bottom: 20, left: 20, right: 20, top: 10),
-                child: RecordForm(
-                  muestreo_ozone       : _ozone,
-                  muestreo_ph          : _ph,
-                  muestreo_conductivity: _conductivity,
-                ),
-              ),
-            )
+                    context           : context,
+                    isScrollControlled: true,
+                    builder           : (_) => Padding(
+                      padding: const EdgeInsets.only(
+                          bottom: 20, left: 20, right: 20, top: 10),
+                      child: RecordForm(
+                        muestreo_ozone       : _ozone,
+                        muestreo_ph          : _ph,
+                        muestreo_conductivity: _conductivity,
+                      ),
+                    ),
+                  )
                 : () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Debes completar el muestreo primero.'),
-              ),
-            ),
+                      const SnackBar(
+                        content: Text('Debes completar el muestreo primero.'),
+                      ),
+                    ),
           ),
         ],
       ),

@@ -33,7 +33,12 @@ factory Muestreo.fromJson(Map<String, dynamic> json) {
     };
   }
 
-
+  //*************** */
+ void inicializo() {
+    _samples = [
+      Sample(numSample: 1, selectedMinutes: 0, selectedSeconds: 0),
+    ];
+  }
 
   //*************** */
  void llenarMuestras() {

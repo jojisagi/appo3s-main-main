@@ -164,7 +164,6 @@ Future<void> _saveToCsv(BuildContext context) async {
               ),
               const SizedBox(height: 20),
 
-              // --- Gráfica de Conductividad ---
               Row(
               children: [
                 // --- Gráfica de Conductividad ---

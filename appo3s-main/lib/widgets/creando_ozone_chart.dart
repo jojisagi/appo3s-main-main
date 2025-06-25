@@ -13,16 +13,18 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:appo3s/models/muestreo.dart';
 import 'package:appo3s/models/sample.dart';
 
+
 class Creando_OzoneChart extends StatelessWidget {
-  const Creando_OzoneChart({super.key, required this.muestreo});
+   Creando_OzoneChart({super.key, required this.muestreo});
 
   final Muestreo muestreo;
+  
 
   @override
   Widget build(BuildContext context) {
     const emphColor = Color.fromARGB(255, 159, 206, 238);
     final List<Sample> samples = muestreo.samples;
-
+    
     /* ───────────── Sin datos ───────────── */
     if (samples.isEmpty) {
       return Column(
