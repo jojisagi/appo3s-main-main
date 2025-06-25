@@ -49,7 +49,19 @@ class Esp32Service extends ChangeNotifier {
   // Se obtiene en caliente con Provider cuando haga falta
   CalibrationService get _calSrv =>
       _calibrationKey.currentContext!.read<CalibrationService>();
-  static final _calibrationKey = GlobalKey(); // se inyecta en arriba del árbol
+  static final _calibrationKey = GlobalKey();
+
+  get phMuestreo => null;
+
+  get condMuestreo => null;
+
+  get ozoneMuestreo => null;
+
+  get conc => null;
+
+  get idFromApi => null;
+
+  get contaminante => null; // se inyecta en arriba del árbol
 
   // ──────────── API pública ────────────────
   void startPolling() {
@@ -105,9 +117,13 @@ class Esp32Service extends ChangeNotifier {
     final list = buffer[tipo]!;
     list.add(
       Record(
-        contaminante : tipo,
-        concentracion: corrected,
-        fechaHora    : DateTime.tryParse(ts) ?? DateTime.now(),
+        id                   : idFromApi,
+        contaminante         : contaminante,
+        concentracion        : conc,
+        fechaHora            : DateTime.now(),
+        muestreoOzone        : ozoneMuestreo,
+        muestreoPh           : phMuestreo,
+        muestreoConductivity : condMuestreo,
       ),
     );
     if (list.length > maxSamples) list.removeAt(0);

@@ -138,15 +138,16 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
         final rnd = Random();
 
         final nuevo = Record(
-          contaminante : 'O₃ (demo)',
-          concentracion: rnd.nextDouble() * 0.7 + 0.3, // 0.3-1.0 ppm
-          fechaHora    : DateTime.now(),
-          muestreo_ozone       : Muestreo(),
-          muestreo_ph          : Muestreo(),
-          muestreo_conductivity: Muestreo(),
+          contaminante         : 'O₃ (demo)',
+          concentracion        : 0.7 + rnd.nextDouble() * 0.3, // 0.7-1.0 ppm
+          fechaHora            : DateTime.now(),
+          muestreoOzone        : Muestreo(),
+          muestreoPh           : Muestreo(),
+          muestreoConductivity : Muestreo(),
         );
 
-        await context.read<RecordService>().addRecord(nuevo);
+
+        await context.read<RecordService>().saveRecord(nuevo, sync:false);
 
         t.cancel();
         setState(() => _simulating = false);

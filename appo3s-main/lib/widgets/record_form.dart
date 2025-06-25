@@ -1,21 +1,21 @@
-//record_form.dart
+// lib/widgets/record_form.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../models/record.dart';
-import '../services/record_service.dart';
 import '../models/muestreo.dart';
+import '../services/record_service.dart';
 
 class RecordForm extends StatefulWidget {
+  final Muestreo muestreoOzone;
+  final Muestreo muestreoPh;
+  final Muestreo muestreoConductivity;
 
-  Muestreo muestreo_ozone;
-  Muestreo muestreo_ph ;
-  Muestreo muestreo_conductivity;
-
-  RecordForm({
+  const RecordForm({
     super.key,
-    required this.muestreo_ozone,
-    required this.muestreo_ph,
-    required this.muestreo_conductivity,
+    required this.muestreoOzone,
+    required this.muestreoPh,
+    required this.muestreoConductivity,
   });
 
   @override
@@ -24,105 +24,121 @@ class RecordForm extends StatefulWidget {
 
 class _RecordFormState extends State<RecordForm> {
   final _formKey = GlobalKey<FormState>();
-  String contaminante = '';
-  double concentracion = 0;
-  DateTime fecha = DateTime.now();
-  TimeOfDay hora = TimeOfDay.now();
+
+  String    _contaminante  = '';
+  double    _concentracion = 0.0;
+  DateTime  _fecha         = DateTime.now();
+  TimeOfDay _hora          = TimeOfDay.now();
 
   @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              decoration: const InputDecoration(labelText: 'Contaminante'),
-              onSaved: (v) => contaminante = v ?? '',
-              validator: (v) =>
-              v == null || v.isEmpty ? 'Campo requerido' : null,
-            ),
-            TextFormField(
-              decoration: const InputDecoration(labelText: 'Concentración (ppm)'),
-              keyboardType: TextInputType.number,
-              onSaved: (v) => concentracion = double.tryParse(v ?? '0') ?? 0,
-              validator: (v) {
-                if (v == null || v.trim().isEmpty) {
-                  return 'Campo requerido';
-                }
-                final valor = double.tryParse(v);
-                if (valor == null) {
-                  return 'Ingrese un número válido';
-                }
-                if (valor < 0) {
-                  return 'Debe ser un valor positivo';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.calendar_today),
-              onPressed: () async {
-                final d = await showDatePicker(
-                  context: context,
-                  initialDate: fecha,
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime(2100),
-                );
-                if (d != null) setState(() => fecha = d);
-              },
-              label: Text('Fecha: ${fecha.toIso8601String().split('T').first}'),
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              icon: const Icon(Icons.access_time),
-              onPressed: () async {
-                final t = await showTimePicker(
-                  context: context,
-                  initialTime: hora,
-                );
-                if (t != null) setState(() => hora = t);
-              },
-              label: Text('Hora: ${hora.format(context)}'),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.primary,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: () {
-                if (!(_formKey.currentState?.validate() ?? false)) return;
-                _formKey.currentState?.save();
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          /* ─── contaminante ─── */
+          TextFormField(
+            decoration:
+            const InputDecoration(labelText: 'Contaminante'),
+            onSaved: (v) => _contaminante = v ?? '',
+            validator: (v) =>
+            (v == null || v.isEmpty) ? 'Campo requerido' : null,
+          ),
+          /* ─── concentración ─── */
+          TextFormField(
+            decoration: const InputDecoration(
+                labelText: 'Concentración (ppm)'),
+            keyboardType: TextInputType.number,
+            onSaved: (v) =>
+            _concentracion = double.tryParse(v ?? '') ?? 0,
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) {
+                return 'Campo requerido';
+              }
+              final d = double.tryParse(v);
+              if (d == null) return 'Ingrese un número válido';
+              if (d < 0) return 'Debe ser positivo';
+              return null;
+            },
+          ),
+          const SizedBox(height: 16),
 
-                final fechaHora = DateTime(
-                  fecha.year,
-                  fecha.month,
-                  fecha.day,
-                  hora.hour,
-                  hora.minute,
-                );
-
-                context.read<RecordService>().addRecord(
-                  Record(
-                    contaminante: contaminante,
-                    concentracion: concentracion,
-                    fechaHora: fechaHora,
-                    muestreo_ozone: widget.muestreo_ozone,
-                    muestreo_ph: widget.muestreo_ph,
-                    muestreo_conductivity: widget.muestreo_conductivity,
-                  ),
-                );
-                Navigator.pop(context); // cierra el formulario
-              },
-              child: const Text('Guardar'),
+          /* ─── selector FECHA ─── */
+          ElevatedButton.icon(
+            icon: const Icon(Icons.calendar_today),
+            label: Text(
+              'Fecha: ${_fecha.toIso8601String().split('T').first}',
             ),
-          ],
-        ),
+            onPressed: () async {
+              final d = await showDatePicker(
+                context: context,
+                initialDate: _fecha,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2100),
+              );
+              if (d != null) setState(() => _fecha = d);
+            },
+          ),
+          const SizedBox(height: 8),
+
+          /* ─── selector HORA ─── */
+          ElevatedButton.icon(
+            icon: const Icon(Icons.access_time),
+            label: Text('Hora: ${_hora.format(context)}'),
+            onPressed: () async {
+              final t = await showTimePicker(
+                context: context,
+                initialTime: _hora,
+              );
+              if (t != null) setState(() => _hora = t);
+            },
+          ),
+          const SizedBox(height: 24),
+
+          /* ─── GUARDAR ─── */
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+              Theme.of(context).colorScheme.primary,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Guardar'),
+            onPressed: () async {
+              if (!(_formKey.currentState?.validate() ?? false)) {
+                return;
+              }
+              _formKey.currentState?.save();
+
+              final fechaHora = DateTime(
+                _fecha.year,
+                _fecha.month,
+                _fecha.day,
+                _hora.hour,
+                _hora.minute,
+              );
+
+              final nuevo = Record(
+                contaminante: _contaminante,
+                concentracion: _concentracion,
+                fechaHora: fechaHora,
+                muestreoOzone: widget.muestreoOzone.deepCopy(),
+                muestreoPh: widget.muestreoPh.deepCopy(),
+                muestreoConductivity:
+                widget.muestreoConductivity.deepCopy(),
+              );
+
+              // nuevo método unificado (insert / update)
+              await context
+                  .read<RecordService>()
+                  .saveRecord(nuevo);
+
+              if (mounted) Navigator.pop(context); // cierra el modal
+            },
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
 }

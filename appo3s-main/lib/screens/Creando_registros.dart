@@ -155,9 +155,9 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
               padding: const EdgeInsets.only(
                   bottom: 20, left: 20, right: 20, top: 10),
               child: RecordForm(
-                muestreo_ozone       : _ozone,
-                muestreo_ph          : _ph,
-                muestreo_conductivity: _conductivity,
+                muestreoOzone       : _ozone,
+                muestreoPh          : _ph,
+                muestreoConductivity: _conductivity,
               ),
             ),
           )

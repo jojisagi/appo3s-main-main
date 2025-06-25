@@ -1,11 +1,10 @@
-// lib/widgets/editing_samples.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/muestreo.dart';
 import '../models/sample.dart';
 
 class EditingSamples extends StatefulWidget {
-  final Muestreo          muestreo;          // contiene maxDuration
+  final Muestreo           muestreo;          // contiene maxDuration
   final Function(Muestreo)? onSamplesUpdated;
 
   const EditingSamples({
@@ -21,25 +20,33 @@ class EditingSamples extends StatefulWidget {
 class _EditingSamplesState extends State<EditingSamples> {
   final _formKey = GlobalKey<FormState>();
 
-  // ------------- helpers -------------
+  /* ╭──── helpers límites ────╮ */
   int? get _maxSeconds => widget.muestreo.maxDuration?.inSeconds;
   bool _exceed(int sec) => _maxSeconds != null && sec > _maxSeconds!;
   void _warn() => ScaffoldMessenger.of(context).showSnackBar(
-    const SnackBar(content: Text('La muestra excede el tiempo máximo permitido')),
+    const SnackBar(
+        content: Text('La muestra excede el tiempo máximo permitido')),
   );
 
   void _ordenarYNotificar() {
-    // ordena por tiempo y renumera
     widget.muestreo.sortByTime();
     widget.muestreo.renum();
     widget.onSamplesUpdated?.call(widget.muestreo.deepCopy());
   }
 
-  // ------------- CRUD -------------
+  /* ╭──── CRUD ────╮ */
   Sample _nextSample() {
+    // primer punto
     if (widget.muestreo.isEmpty) {
-      return Sample(numSample: 1, selectedMinutes: 0, selectedSeconds: 5);
+      return Sample(
+        numSample       : 1,
+        selectedMinutes : 0,
+        selectedSeconds : 5,
+        y               : 0.0,
+      );
     }
+
+    // a partir del último
     final last = widget.muestreo.last;
     var m   = last.selectedMinutes;
     var sec = last.selectedSeconds + 5;
@@ -48,15 +55,16 @@ class _EditingSamplesState extends State<EditingSamples> {
       sec = sec % 60;
     }
     return Sample(
-      numSample        : last.numSample + 1,
-      selectedMinutes  : m,
-      selectedSeconds  : sec,
+      numSample       : last.numSample + 1,
+      selectedMinutes : m,
+      selectedSeconds : sec,
+      y               : 0.0,
     );
   }
 
   void _addSample() {
     final s = _nextSample();
-    final total = s.selectedMinutes * 60 + s.selectedSeconds;
+    final total = s.totalSeconds;
     if (_exceed(total)) {
       _warn();
       return;
@@ -68,7 +76,7 @@ class _EditingSamplesState extends State<EditingSamples> {
   }
 
   void _updateSample(int index, Sample upd) {
-    final total = upd.selectedMinutes * 60 + upd.selectedSeconds;
+    final total = upd.totalSeconds;
     if (_exceed(total)) {
       _warn();
       return;
@@ -86,7 +94,7 @@ class _EditingSamplesState extends State<EditingSamples> {
     });
   }
 
-  // ------------- UI -------------
+  /* ╭──── UI ────╮ */
   @override
   Widget build(BuildContext context) => SingleChildScrollView(
     padding: const EdgeInsets.all(16),
@@ -99,10 +107,7 @@ class _EditingSamplesState extends State<EditingSamples> {
             shrinkWrap : true,
             physics    : const NeverScrollableScrollPhysics(),
             itemCount  : widget.muestreo.count,
-            itemBuilder: (_, i) {
-              final s = widget.muestreo[i];
-              return _sampleCard(s, i);
-            },
+            itemBuilder: (_, i) => _sampleCard(widget.muestreo[i], i),
           ),
           const SizedBox(height: 12),
           ElevatedButton(
@@ -123,8 +128,9 @@ class _EditingSamplesState extends State<EditingSamples> {
             children: [
               Text('Sample ${s.numSample} – ${s.formattedTime}'),
               IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _removeSample(idx)),
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _removeSample(idx),
+              ),
             ],
           ),
           Row(children: [
@@ -143,7 +149,7 @@ class _EditingSamplesState extends State<EditingSamples> {
               limit   : 2,
               onChange: (v) => _updateSample(
                 idx,
-                s.copyWith(selectedSeconds: v),
+                s.copyWith(selectedSeconds: v.clamp(0, 59)),
               ),
             ),
           ]),

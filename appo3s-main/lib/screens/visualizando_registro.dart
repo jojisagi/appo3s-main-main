@@ -38,9 +38,9 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
   @override
   void initState() {
     super.initState();
-    oz   = widget.record.muestreo_ozone      .deepCopy();
-    cond = widget.record.muestreo_conductivity.deepCopy();
-    ph   = widget.record.muestreo_ph         .deepCopy();
+    oz   = widget.record.muestreoOzone      .deepCopy();
+    cond = widget.record.muestreoConductivity.deepCopy();
+    ph   = widget.record.muestreoPh         .deepCopy();
   }
 
   @override
@@ -112,11 +112,12 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
     final nuevo = widget.record.copyWith(
       fechaHora            : DateTime.now(),
-      muestreo_ozone       : oz  .deepCopy(),
-      muestreo_conductivity: cond.deepCopy(),
-      muestreo_ph          : ph  .deepCopy(),
+      muestreoOzone       : oz  .deepCopy(),
+      muestreoConductivity: cond.deepCopy(),
+      muestreoPh          : ph  .deepCopy(),
     );
-    await context.read<RecordService>().addRecord(nuevo);
+    await context.read<RecordService>().saveRecord(nuevo, sync:false);
+
     if (mounted) {
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Simulación guardada')));
