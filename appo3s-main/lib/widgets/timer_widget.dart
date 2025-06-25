@@ -6,7 +6,7 @@ import '../models/muestreo.dart';
 
 class TimerWidget extends StatefulWidget {
   final Muestreo     muestreo;
-  final VoidCallback? onStart;          // ← callback externo
+  final VoidCallback? onStart;   // callback externo
 
   const TimerWidget({
     super.key,
@@ -25,7 +25,7 @@ class _TimerWidgetState extends State<TimerWidget>
   Duration _currentDuration = Duration.zero;
   bool     _isTimerRunning   = false;
 
-  /* ────────── inputs “mm:ss” ────────── */
+  /* ────────── inputs mm:ss ────────── */
   final _minutesCtrl = TextEditingController(text: '0');
   final _secondsCtrl = TextEditingController(text: '30');
 
@@ -33,7 +33,7 @@ class _TimerWidgetState extends State<TimerWidget>
   void initState() {
     super.initState();
     _controller = AnimationController(
-      vsync   : this,
+      vsync: this,
       duration: const Duration(hours: 24),
     )..addListener(() {
       setState(() {
@@ -41,7 +41,7 @@ class _TimerWidgetState extends State<TimerWidget>
       });
     });
 
-    // Si ya hay una duración máxima, muéstrala en los campos
+    // carga duración máxima, si existiera
     final maxDur = widget.muestreo.maxDuration;
     if (maxDur != null) {
       _minutesCtrl.text = maxDur.inMinutes.toString();
@@ -75,12 +75,20 @@ class _TimerWidgetState extends State<TimerWidget>
   }
 
   void _startTimer() {
+    // ① Verificar límite
     final maxDur = widget.muestreo.maxDuration;
     if (maxDur == null) {
       _msg('Primero establece un tiempo máximo');
       return;
     }
 
+    // ② Debe existir al menos UNA muestra
+    if (widget.muestreo.isEmpty) {
+      _msg('Debes definir al menos una muestra antes de iniciar');
+      return;
+    }
+
+    // ③ Arranca
     setState(() {
       _controller
         ..duration = maxDur
@@ -88,7 +96,7 @@ class _TimerWidgetState extends State<TimerWidget>
       _isTimerRunning = true;
     });
 
-    // 🔔 avisa al padre para arrancar la simulación
+    // notifica a la pantalla padre
     widget.onStart?.call();
   }
 
@@ -143,8 +151,9 @@ class _TimerWidgetState extends State<TimerWidget>
           ElevatedButton(
             onPressed: _setMaxDuration,
             style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 12)),
+              padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
             child: const Text('SET', style: TextStyle(fontSize: 12)),
           ),
         ]),
@@ -154,10 +163,9 @@ class _TimerWidgetState extends State<TimerWidget>
         Center(
           child: Text(_fmt(_currentDuration),
               style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'RobotoMono',
-              )),
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: 'RobotoMono')),
         ),
         if (widget.muestreo.maxDuration != null)
           Padding(
@@ -187,23 +195,24 @@ class _TimerWidgetState extends State<TimerWidget>
 
   /* —— widgets auxiliares —— */
 
-  Widget _numField(TextEditingController c, String lbl, {int? limit}) => Expanded(
-    child: TextFormField(
-      controller: c,
-      decoration: InputDecoration(
-        labelText: lbl,
-        border: const OutlineInputBorder(),
-        isDense: true,
-        contentPadding:
-        const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-      ),
-      keyboardType: TextInputType.number,
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        if (limit != null) LengthLimitingTextInputFormatter(limit),
-      ],
-    ),
-  );
+  Widget _numField(TextEditingController c, String lbl, {int? limit}) =>
+      Expanded(
+        child: TextFormField(
+          controller: c,
+          decoration: InputDecoration(
+            labelText: lbl,
+            border: const OutlineInputBorder(),
+            isDense: true,
+            contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            if (limit != null) LengthLimitingTextInputFormatter(limit),
+          ],
+        ),
+      );
 
   Widget _ctrlBtn(String txt, VoidCallback fn, Color c) => ElevatedButton(
     onPressed: fn,

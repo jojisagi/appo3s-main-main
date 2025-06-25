@@ -51,7 +51,14 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
   }
 
   void _onStart() {
-    if (!_patternSet || _started) return;
+    // ①  pauta definida     ②  al menos una muestra      ③  no arrancado aún
+    if (!_patternSet || _timePattern.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Debes definir al menos una muestra')),
+      );
+      return;
+    }
+    if (_started) return;               // ya corriendo
 
     _started = true;
     _ticker  = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -60,6 +67,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     });
     setState(() {});
   }
+
 
   void _injectMockValuesIfNeeded() {
     if (_timePattern.index_actual >= _timePattern.count) {
