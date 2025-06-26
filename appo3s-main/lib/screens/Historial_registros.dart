@@ -160,11 +160,7 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
 
     return Scaffold(
       appBar: _buildAppBar(),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _startSimulation,
-        label    : const Text('Simular'),
-        icon     : const Icon(Icons.play_arrow),
-      ),
+
       body: Column(
         children: [
           if (_simulating)
