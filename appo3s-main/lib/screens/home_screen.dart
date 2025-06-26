@@ -11,8 +11,6 @@ import 'package:http/http.dart' as http;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'dart:io';
 
-
-
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   
@@ -21,55 +19,174 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _isSelected = false;
+  bool _isSelected = true; // true = Wi-Fi, false = Serial
   bool _isConnected = false;
   late final ESP32WifiService _wifiService;
   late final ConnectionManager _connectionManager;
 
   @override
-  void initState() {
-    super.initState();
-    
-    _wifiService = ESP32WifiService(ipAddress: '0.0.0.0');
-    _connectionManager = ConnectionManager(
-      wifiService: _wifiService,
-      serialService: ESP32SerialService(),
-    );
-    _autoBuscarESP32();
-  }
+@override
+void initState() {
+  super.initState();
 
-  Future<void> _autoBuscarESP32() async {
+  _wifiService = ESP32WifiService(ipAddress: '0.0.0.0');
+  _connectionManager = ConnectionManager(
+    wifiService: _wifiService,
+    serialService: ESP32SerialService(),
+  );
+
+  // Ejecutar luego del primer frame
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    //_autoBuscarESP32();
+  });
+
+
+  
+}
+
+
+  Future<bool> _autoBuscarESP32() async {
+
+    bool result = false;
+  try {
+    // Mostrar dialogo de progreso
+    //_mostrarDialogo('Obteniendo IP local...');
+
     final ipLocal = await _obtenerIpLocal();
-    print ('IP local obtenida: $ipLocal');
-    if (ipLocal == null) return;
+    print('IP local obtenida: $ipLocal');
+
+    if (!mounted) return false;
+    if (ipLocal == null) {
+      Navigator.of(context).pop(); // cerrar diálogo
+      final connectivity = await Connectivity().checkConnectivity();
+      final mensaje = (connectivity == ConnectivityResult.wifi)
+          ? 'Conectado a WiFi pero sin IP (¿problema de DHCP?)'
+          : 'No hay conexión WiFi activa';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
+      return false;
+    }
 
     final subnet = _extraerSubnet(ipLocal);
+    if (subnet.isEmpty) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('IP inválida detectada: $ipLocal')),
+      );
+      return false;
+    }
 
-    final ipEncontrada = await buscarIpESP32Simple(subnet);
+    // Actualizar mensaje del diálogo
+    _mostrarDialogo('Buscando ESP32 en la red...');
+
+    final ipEncontrada = await buscarIpESP32Extendido(subnet);
+
+    if (!mounted) return false;
+    Navigator.of(context).pop(); // cerrar diálogo al finalizar búsqueda
+
     if (ipEncontrada != null) {
+      print('ESP32 encontrado en $ipEncontrada');
       _wifiService.ipAddress = ipEncontrada;
+      result = true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('ESP32 encontrado en $ipEncontrada')),
+        
+      );
+
       if (_isSelected) {
         final ok = await _connectionManager.switchConnection(ConnectionType.wifi);
         setState(() => _isConnected = ok);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ok
+                ? 'Conexión Wi-Fi con ESP32 establecida'
+                : 'Fallo al conectar por Wi-Fi'),
+          ),
+        );
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se encontró el ESP32 en la red.')),
+      );
+      result = false;
+    }
+  } catch (e) {
+    print('Error en _autoBuscarESP32: $e');
+    result = false;
+    if (mounted) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al buscar ESP32: $e')),
+      );
     }
   }
 
-  Future<String?> _obtenerIpLocal() async {
-    try {
-      final result = await Connectivity().checkConnectivity();
-      if (result != ConnectivityResult.wifi) return null;
 
-      for (var interface in await NetworkInterface.list()) {
-        for (var addr in interface.addresses) {
-          if (addr.type == InternetAddressType.IPv4 && !addr.isLoopback) {
-            return addr.address;
-          }
+  return result;
+}
+
+
+Future<String?> _obtenerIpLocal() async {
+  try {
+    // 1. Verificar si hay internet realmente
+    final tieneInternet = await _verificarConexionReal();
+    print('Tiene conexión a internet: $tieneInternet');
+    if (!tieneInternet) {
+      print('No hay conexión real a internet.');
+      return null;
+    }
+
+    // 2. Listar interfaces de red
+    List<NetworkInterface> interfaces = [];
+    try {
+      interfaces = await NetworkInterface.list(
+        includeLoopback: false,
+        type: InternetAddressType.IPv4,
+      ).timeout(const Duration(seconds: 3), onTimeout: () => []);
+    } catch (e) {
+      print('Error al listar interfaces de red: $e');
+      return null;
+    }
+
+    if (interfaces.isEmpty) {
+      print('No se encontraron interfaces de red.');
+      return null;
+    }
+
+    // 3. Mostrar interfaces encontradas
+    for (var interface in interfaces) {
+      print('Interfaz: ${interface.name}');
+      for (var addr in interface.addresses) {
+        print('  → Dirección: ${addr.address} (${addr.type}, loopback: ${addr.isLoopback})');
+        if (addr.type == InternetAddressType.IPv4 &&
+            !addr.isLoopback &&
+            addr.address != '0.0.0.0') {
+          print('✅ IP local válida encontrada: ${addr.address}');
+          return addr.address;
         }
       }
-    } catch (_) {}
+    }
+
+    print('⚠️ No se encontró una dirección IPv4 válida.');
+    return null;
+  } catch (e) {
+    print('❌ Error crítico en _obtenerIpLocal: $e');
     return null;
   }
+}
+
+
+Future<bool> _verificarConexionReal() async {
+  try {
+    // Intentamos conectar a un servidor confiable
+    final result = await InternetAddress.lookup('google.com').timeout(
+      const Duration(seconds: 3),
+    );
+    return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+  } catch (e) {
+    print('Error al verificar conexión real: $e');
+    return false;
+  }
+}
 
   String _extraerSubnet(String ip) {
     final parts = ip.split('.');
@@ -117,6 +234,82 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _mostrarDialogo(String mensaje) {
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      content: Row(
+        children: [
+          const CircularProgressIndicator(),
+          const SizedBox(width: 16),
+          Expanded(child: Text(mensaje)),
+        ],
+      ),
+    ),
+  );
+}
+
+Future<void> _handleSwitchChange(bool value) async {
+  // Cambiar inmediatamente el estado visual del switch
+  setState(() {
+    _isSelected = value;
+  });
+
+  // Mostrar indicador de carga
+  final dialogContext = context;
+  showDialog(
+    context: dialogContext,
+    barrierDismissible: false,
+    builder: (_) => const AlertDialog(
+      content: Row(
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(width: 16),
+          Text('Cambiando conexión...'),
+        ],
+      ),
+    ),
+  );
+
+  bool connectionResult = false;
+  
+  try {
+    if (value) {
+      // Modo Wi-Fi - buscar ESP32
+      connectionResult = await _autoBuscarESP32();
+    } else {
+      // Modo Serial - verificar conexión por cable
+      connectionResult = await _connectionManager.switchConnection(ConnectionType.serial);
+    }
+  } catch (e) {
+    print('Error al cambiar conexión: $e');
+    connectionResult = false;
+  }
+
+  // Cerrar el diálogo solo si el widget todavía está montado
+  if (mounted) {
+    Navigator.of(dialogContext, rootNavigator: true).pop();
+    
+    setState(() {
+      _isConnected = connectionResult;
+    });
+
+    // Mostrar feedback al usuario
+    ScaffoldMessenger.of(dialogContext).showSnackBar(
+      SnackBar(
+        content: Text(
+          connectionResult
+              ? 'Conectado por ${value ? 'Wi-Fi' : 'Cable'}'
+              : 'Error al conectar por ${value ? 'Wi-Fi' : 'Cable'}',
+        ),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -142,7 +335,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: const TextStyle(fontSize: 16, color: Colors.white)),
                 Switch(
                   value: _isSelected,
-                  onChanged: (bool value) => mensaje_escafold(context, value),
+                  onChanged: _handleSwitchChange, // Usar el nuevo método
+
                 ),
               ],
             ),
@@ -201,30 +395,89 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+Future<String?> buscarIpESP32Extendido(String subnet) async {
+  print('🔍 Iniciando escaneo extendido rápido en subnet: $subnet');
 
-Future<String?> buscarIpESP32Simple(String subnet) async {
-  print('🔍 Iniciando escaneo en subnet: $subnet');
+  final parts = subnet.split('.');
+  if (parts.length != 3) {
+    print('❌ Subnet inválido: $subnet');
+    return null;
+  }
 
-  for (int i = 1; i < 255; i++) {
+  final base1 = int.tryParse(parts[0]) ?? 0;
+  final base2 = int.tryParse(parts[1]) ?? 0;
+  final thirdOctet = int.tryParse(parts[2]) ?? 0;
+
+  // Lista de direcciones comunes donde suele estar el ESP32
+  final commonAddresses = [1, 2, 100, 101, 123, 200, 254];
+
+  // Primero buscamos en las direcciones comunes (más rápidamente)
+  for (final i in commonAddresses) {
     final ip = '$subnet.$i';
-    
-    try {
-      final response = await http
-          .get(Uri.parse('http://$ip/status'))
-          .timeout(const Duration(milliseconds: 300));
-
-      if (response.statusCode == 200 && response.body.trim() == "OK") {
-        print('✅ ESP32 encontrado en $ip');
-        return ip;
-      } else {
-        print('⚠️  $ip respondió pero no es ESP32');
-      }
-    } catch (e) {
-      print('❌ Sin respuesta de $ip');
+    if (await _verificarIpRapido(ip)) {
+      print('✅ ESP32 encontrado rápidamente en $ip');
+      return ip;
     }
   }
 
-  print('🚫 No se encontró el ESP32 en la red.');
+  // Si no lo encontramos, buscamos en el resto del rango
+  final futures = <Future<String?>>[];
+  
+  for (int offset = -3; offset <= 3; offset++) {
+    final currentThird = thirdOctet + offset;
+    if (currentThird < 0 || currentThird > 255) continue;
+
+    final currentSubnet = '$base1.$base2.$currentThird';
+    print('🌐 Explorando subnet: $currentSubnet');
+
+    // Buscamos en paralelo en grupos de 10 direcciones
+    for (int group = 1; group < 255; group += 10) {
+      final groupEnd = (group + 10).clamp(1, 255);
+      
+      for (int i = group; i < groupEnd; i++) {
+        final ip = '$currentSubnet.$i';
+        futures.add(_verificarIpConTimeout(ip));
+      }
+
+      // Esperamos resultados del grupo actual
+      final results = await Future.wait(futures);
+      for (final result in results) {
+        if (result != null) {
+          print('✅ ESP32 encontrado en ${result}');
+          return result;
+        }
+      }
+      futures.clear();
+    }
+  }
+
+  print('🚫 No se encontró el ESP32 en las subnets exploradas.');
   return null;
 }
 
+Future<bool> _verificarIpRapido(String ip) async {
+  try {
+    final response = await http
+        .get(Uri.parse('http://$ip/status'))
+        .timeout(const Duration(milliseconds: 100)); // Tiempo más corto
+
+    return response.statusCode == 200 && response.body.trim() == "OK";
+  } catch (e) {
+    return false;
+  }
+}
+
+Future<String?> _verificarIpConTimeout(String ip) async {
+  try {
+    final response = await http
+        .get(Uri.parse('http://$ip/status'))
+        .timeout(const Duration(milliseconds: 150)); // Tiempo intermedio
+
+    if (response.statusCode == 200 && response.body.trim() == "OK") {
+      return ip;
+    }
+  } catch (e) {
+    // Ignorar errores de timeout
+  }
+  return null;
+}

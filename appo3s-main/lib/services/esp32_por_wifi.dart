@@ -28,7 +28,13 @@ class ESP32WifiService {
         Uri.parse('http://$ipAddress:$port/data'),
       ).timeout(const Duration(seconds: 2));
 
-      if (response.statusCode == 200) return response.body;
+      if (response.statusCode == 200) {
+
+        print('Datos obtenidos: ${response.body}');
+        return response.body;
+      }
+      
+      
 
       throw Exception('Error en la respuesta del ESP32');
     } catch (e) {
