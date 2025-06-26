@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../models/record.dart';
 import '../models/muestreo.dart';
+import '../models/record.dart';
 import '../services/record_service.dart';
 
 class RecordForm extends StatefulWidget {
@@ -26,7 +26,7 @@ class _RecordFormState extends State<RecordForm> {
   final _formKey = GlobalKey<FormState>();
 
   String    _contaminante  = '';
-  double    _concentracion = 0.0;
+  double    _concentracion = 0;
   DateTime  _fecha         = DateTime.now();
   TimeOfDay _hora          = TimeOfDay.now();
 
@@ -42,14 +42,15 @@ class _RecordFormState extends State<RecordForm> {
           TextFormField(
             decoration:
             const InputDecoration(labelText: 'Contaminante'),
-            onSaved: (v) => _contaminante = v ?? '',
+            onSaved: (v) => _contaminante = v?.trim() ?? '',
             validator: (v) =>
-            (v == null || v.isEmpty) ? 'Campo requerido' : null,
+            (v == null || v.trim().isEmpty) ? 'Campo requerido' : null,
           ),
+
           /* ─── concentración ─── */
           TextFormField(
-            decoration: const InputDecoration(
-                labelText: 'Concentración (ppm)'),
+            decoration:
+            const InputDecoration(labelText: 'Concentración (ppm)'),
             keyboardType: TextInputType.number,
             onSaved: (v) =>
             _concentracion = double.tryParse(v ?? '') ?? 0,
@@ -59,7 +60,7 @@ class _RecordFormState extends State<RecordForm> {
               }
               final d = double.tryParse(v);
               if (d == null) return 'Ingrese un número válido';
-              if (d < 0) return 'Debe ser positivo';
+              if (d <= 0) return 'Debe ser un valor positivo';
               return null;
             },
           ),
@@ -106,10 +107,8 @@ class _RecordFormState extends State<RecordForm> {
             ),
             child: const Text('Guardar'),
             onPressed: () async {
-              if (!(_formKey.currentState?.validate() ?? false)) {
-                return;
-              }
-              _formKey.currentState?.save();
+              if (!(_formKey.currentState?.validate() ?? false)) return;
+              _formKey.currentState!.save();
 
               final fechaHora = DateTime(
                 _fecha.year,
@@ -120,19 +119,16 @@ class _RecordFormState extends State<RecordForm> {
               );
 
               final nuevo = Record(
-                contaminante: _contaminante,
-                concentracion: _concentracion,
-                fechaHora: fechaHora,
-                muestreoOzone: widget.muestreoOzone.deepCopy(),
-                muestreoPh: widget.muestreoPh.deepCopy(),
-                muestreoConductivity:
-                widget.muestreoConductivity.deepCopy(),
+                contaminante        : _contaminante,
+                concentracion       : _concentracion,
+                fechaHora           : fechaHora,
+                muestreoOzone       : widget.muestreoOzone.deepCopy(),
+                muestreoPh          : widget.muestreoPh.deepCopy(),
+                muestreoConductivity: widget.muestreoConductivity.deepCopy(),
               );
 
-              // nuevo método unificado (insert / update)
-              await context
-                  .read<RecordService>()
-                  .saveRecord(nuevo);
+              // up-sert: crea o actualiza sin duplicar
+              await context.read<RecordService>().saveRecord(nuevo);
 
               if (mounted) Navigator.pop(context); // cierra el modal
             },

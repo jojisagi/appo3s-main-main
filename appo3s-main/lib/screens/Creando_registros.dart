@@ -16,7 +16,8 @@ import '../widgets/record_form.dart';
 import '../widgets/timer_widget.dart';
 
 class CreandoRegistros extends StatefulWidget {
-  /// Si llega nulo → se crea uno nuevo “vacío”
+  /// Si viene **null** → modo “nuevo registro”.
+  /// Si viene un registro → modo “edición”.
   final Record? original;
 
   const CreandoRegistros({super.key, this.original});
@@ -27,12 +28,11 @@ class CreandoRegistros extends StatefulWidget {
 
 class _CreandoRegistrosState extends State<CreandoRegistros> {
 /* ───────────────────────── 1. ESTADO PRINCIPAL ───────────────────────── */
-  late Record _record;                 // ← único “source-of-truth”
-
+  late Record   _record;           // único «source of truth»
   late Muestreo _ozone;
   late Muestreo _ph;
   late Muestreo _conductivity;
-  final Muestreo _timePattern = Muestreo();     // pauta general (timer)
+  final Muestreo _timePattern = Muestreo(); // pauta mm:ss del Timer
 
   bool     _patternSet  = false;
   bool     _started     = false;
@@ -46,10 +46,10 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
   void initState() {
     super.initState();
 
-    // ① Si viene un registro -> usa ese. ② Sino crea uno “en blanco”.
+    // ① Registro existente  o  ② esqueleto “vacío” (no se insertará aún)
     _record = widget.original ??
         Record(
-          contaminante         : 'O₃',
+          contaminante         : 'O₃',           // marcador temporal
           concentracion        : 0,
           fechaHora            : DateTime.now(),
           muestreoOzone        : Muestreo(),
@@ -57,7 +57,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
           muestreoConductivity : Muestreo(),
         );
 
-    // Los buffers arrancan como copias profundas (¡no referencian al mismo obj!)
+    // Los buffers NO deben apuntar al mismo objeto
     _ozone        = _record.muestreoOzone.deepCopy();
     _ph           = _record.muestreoPh.deepCopy();
     _conductivity = _record.muestreoConductivity.deepCopy();
@@ -99,43 +99,47 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     _ticker  = Timer.periodic(const Duration(seconds: 1), (_) {
       _elapsed += const Duration(seconds: 1);
       _injectMockValuesIfNeeded();
-      if (mounted) setState(() {});          // actualiza cronómetro
+      if (mounted) setState(() {}); // actualiza cronómetro
     });
   }
 
   void _injectMockValuesIfNeeded() {
-    /* — Fin de la pauta — */
+    /* ─── Fin de la pauta ─── */
     if (_timePattern.index_actual >= _timePattern.count) {
       _ticker?.cancel();
       _started     = false;
       _formEnabled = true;
 
-      /* ⬇⬇⬇  Actualiza el _record y hace UPSERT  ⬇⬇⬇ */
+      // Clona resultados en el objeto principal
       _record = _record.copyWith(
         muestreoOzone        : _ozone.deepCopy(),
         muestreoPh           : _ph.deepCopy(),
         muestreoConductivity : _conductivity.deepCopy(),
         fechaHora            : DateTime.now(),
       );
-      context.read<RecordService>().saveRecord(_record);
+
+      // ⭐ Sólo se guarda automáticamente si veníamos **editando** uno existente.
+      if (widget.original != null) {
+        context.read<RecordService>().saveRecord(_record);
+      }
 
       setState(() {});
       return;
     }
 
-    /* — Punto alcanzado — */
+    /* ─── Punto alcanzado ─── */
     final smp = _timePattern[_timePattern.index_actual];
     if (_elapsed.inSeconds < smp.totalSeconds) return;
 
-    _ozone       .actualizarMuestras_time(
-        smp.selectedMinutes, smp.selectedSeconds, _rnd.nextDouble());
-    _ph          .actualizarMuestras_time(
-        smp.selectedMinutes, smp.selectedSeconds, 1 + _rnd.nextDouble() * 13);
-    _conductivity.actualizarMuestras_time(
-        smp.selectedMinutes, smp.selectedSeconds, _rnd.nextDouble() * 2000);
+    final m   = smp.selectedMinutes;
+    final sec = smp.selectedSeconds;
+
+    _ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble());            // 0-1 ppm
+    _ph          .actualizarMuestras_time(m, sec, 1 + _rnd.nextDouble() * 13);   // 1-14
+    _conductivity.actualizarMuestras_time(m, sec, _rnd.nextDouble() * 2000);     // 0-2000 µS
 
     _timePattern.index_actual++;
-    setState(() {});                             // refresco inmediato
+    setState(() {}); // refresco inmediato
   }
 
 /* ───────────────────────── 5. UI ───────────────────────── */
@@ -157,17 +161,16 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     floatingActionButton: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        /* ---- Set patrón ---- */
+        /* ---- SET PATRÓN ---- */
         FloatingActionButton.extended(
           heroTag : 'Set',
           icon    : const Icon(Icons.timer),
           label   : const Text('Set'),
           onPressed: () => showModalBottomSheet(
-            context: context,
+            context           : context,
             isScrollControlled: true,
-            builder: (_) => Padding(
-              padding:
-              const EdgeInsets.fromLTRB(20, 10, 20, 20),
+            builder           : (_) => Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
               child: EditingSamples(
                 muestreo        : _timePattern.deepCopy(),
                 onSamplesUpdated: _onSetPattern,
@@ -177,7 +180,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
         ),
         const SizedBox(height: 16),
 
-        /* ---- Capturar manual ---- */
+        /* ---- CAPTURAR ---- */
         FloatingActionButton.extended(
           heroTag : 'Record',
           icon    : const Icon(Icons.check),
@@ -190,7 +193,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
             context           : context,
             isScrollControlled: true,
             builder           : (_) => Padding(
-              padding: const EdgeInsets.fromLTRB(20,10,20,20),
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
               child : RecordForm(
                 muestreoOzone       : _ozone,
                 muestreoPh          : _ph,
@@ -200,7 +203,8 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
           )
               : () => ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Debes completar el muestreo primero.'),
+              content:
+              Text('Debes completar el muestreo primero.'),
             ),
           ),
         ),
@@ -234,7 +238,10 @@ class _GraphsBody extends StatelessWidget {
       children: [
         TimerWidget(muestreo: muestreoTime, onStart: onStart),
         const SizedBox(height: 20),
-        Creando_OzoneChart(key: ValueKey(muestreoOzone.hashCode), muestreo: muestreoOzone),
+        Creando_OzoneChart(
+          key     : ValueKey(muestreoOzone.hashCode),
+          muestreo: muestreoOzone,
+        ),
         const SizedBox(height: 20),
         Row(
           children: [
