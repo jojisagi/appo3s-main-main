@@ -158,9 +158,11 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
             const SizedBox(height: 24),
             Row(
               children: [
+                const SizedBox(width: 20),
                 Expanded(child: Creando_ConductivityChart(muestreo: _cond)),
                 const SizedBox(width: 20),
                 Expanded(child: Creando_PhChart(muestreo: _ph)),
+                const SizedBox(width: 20),
               ],
             ),
 

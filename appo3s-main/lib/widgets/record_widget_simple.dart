@@ -1,6 +1,5 @@
 //record_widget_simple.dart
 import 'package:flutter/material.dart';
-import 'package:appo3s/models/muestreo.dart';
 
 class record_widget_simple extends StatefulWidget {
 
