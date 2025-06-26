@@ -21,7 +21,7 @@ class Creando_PhChart extends StatelessWidget {
     final original = samples
         .map((s) => FlSpot(
       (s.selectedMinutes * 60 + s.selectedSeconds).toDouble(),
-      s.y ?? 0.0,
+      s.y,
     ))
         .toList();
 
@@ -34,7 +34,7 @@ class Creando_PhChart extends StatelessWidget {
     }
 
     /* ────────── stats rápidas ────────── */
-    final ys   = samples.map((e) => e.y ?? 0.0).toList();
+    final ys   = samples.map((e) => e.y).toList();
     final maxY = ys.reduce((a, b) => a > b ? a : b);
     final minY = ys.reduce((a, b) => a < b ? a : b);
     final avgY = ys.fold<double>(0, (p, c) => p + c) / ys.length;

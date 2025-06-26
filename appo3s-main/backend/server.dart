@@ -3,7 +3,6 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:mongo_dart/mongo_dart.dart';
-import 'package:dotenv/dotenv.dart' show load, env;
 
 Future<void> main() async {
   final mongoUri = 'mongodb+srv://jorgesanchez:Alfresi123@cluster0.vsbti.mongodb.net/appo3s?retryWrites=true&w=majority';

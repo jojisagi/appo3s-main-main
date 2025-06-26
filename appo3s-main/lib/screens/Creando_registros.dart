@@ -134,7 +134,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     final m   = smp.selectedMinutes;
     final sec = smp.selectedSeconds;
 
-    _ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble());            // 0-1 ppm
+    _ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble()*100);            // 0-1 ppm
     _ph          .actualizarMuestras_time(m, sec, 1 + _rnd.nextDouble() * 13);   // 1-14
     _conductivity.actualizarMuestras_time(m, sec, _rnd.nextDouble() * 2000);     // 0-2000 µS
 

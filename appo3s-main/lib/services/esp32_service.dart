@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';        // ← para context / Provider
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
+//import 'package:provider/provider.dart';
 
 import '../models/record.dart';
 import 'api_config.dart';                      // baseUrl para el backend
-import 'calibration_service.dart';            // offsets de calibración
+//import 'calibration_service.dart';            // offsets de calibración
 
 /// Servicio que interroga al ESP32 (`/data`) y mantiene un búfer en memoria
 ///
@@ -47,9 +47,9 @@ class Esp32Service extends ChangeNotifier {
   Timer?      _ticker;
 
   // Se obtiene en caliente con Provider cuando haga falta
-  CalibrationService get _calSrv =>
+  /*CalibrationService get _calSrv =>
       _calibrationKey.currentContext!.read<CalibrationService>();
-  static final _calibrationKey = GlobalKey();
+  static final _calibrationKey = GlobalKey();*/
 
   get phMuestreo => null;
 
@@ -112,7 +112,7 @@ class Esp32Service extends ChangeNotifier {
     if (rawValue == null) return;
 
     // Aplica calibración
-    final corrected = rawValue.toDouble() - _calibrationOffset(tipo);
+    //final corrected = rawValue.toDouble() - _calibrationOffset(tipo);
 
     final list = buffer[tipo]!;
     list.add(
@@ -129,14 +129,14 @@ class Esp32Service extends ChangeNotifier {
     if (list.length > maxSamples) list.removeAt(0);
   }
 
-  double _calibrationOffset(String tipo) {
+  /*double _calibrationOffset(String tipo) {
     switch (tipo) {
       case 'o3'  : return _calSrv.o3Offset;
       case 'ph'  : return _calSrv.phOffset;
       case 'cond': return _calSrv.condOffset;
       default    : return 0;
     }
-  }
+  }*/
 
   Future<void> _syncLastToBackend() async {
     try {
