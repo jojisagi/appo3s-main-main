@@ -9,7 +9,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:appo3s/models/muestreo.dart';
-import 'package:appo3s/models/sample.dart';
 
 class Creando_ConductivityChart extends StatelessWidget {
   const Creando_ConductivityChart({super.key, required this.muestreo});

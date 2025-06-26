@@ -1,90 +1,107 @@
-// File: lib/utils/file_saver_io.dart
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+
 import '../models/muestreo.dart';
 
+String _fmtTime(int m, int s) => '${m.toString().padLeft(2, '0')}:'
+    '${s.toString().padLeft(2, '0')}';
 
+String _muestreoTxt(String titulo, Muestreo m) {
+  final b = StringBuffer('\n$titulo\n');
+  for (final s in m.samples) {
+    b.writeln('  • (${_fmtTime(s.selectedMinutes, s.selectedSeconds)}) → '
+        '${s.y.toStringAsFixed(4)}');
+  }
+  return b.toString();
+}
 
-Future<void> saveToTxt(BuildContext context,
-   Text contaminante,
-   Text concentracion,
-   Text fechaHora,
-    Muestreo muestreo_ozone,  
-    Muestreo muestreo_ph,
-    Muestreo muestreo_conductivity
-) async {
-    try {
-      // Pedir al usuario donde guardar
-      String? outputPath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Guardar archivo TXT',
-        fileName: 'muestreo_${DateTime.now().millisecondsSinceEpoch}.txt',
-        allowedExtensions: ['txt'],
-      );
-      
-      if (outputPath != null) {
-        final file = File(outputPath);
-        String content = """
+String _muestreoCsv(String serie, Muestreo m) {
+  final b = StringBuffer();
+  for (final s in m.samples) {
+    b.writeln('$serie,${_fmtTime(s.selectedMinutes, s.selectedSeconds)},'
+        '${s.y}');
+  }
+  return b.toString();
+}
+
+/* ─────────────────────────── TXT ─────────────────────────── */
+Future<void> saveToTxt(
+    BuildContext context,
+    String   contaminante,
+    double   concentracion,
+    DateTime fechaHora,
+    Muestreo muestreoOzone,
+    Muestreo muestreoPh,
+    Muestreo muestreoConductivity,
+    ) async {
+  try {
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Guardar archivo TXT',
+      fileName   : 'muestreo_${DateTime.now().millisecondsSinceEpoch}.txt',
+      allowedExtensions: ['txt'],
+    );
+    if (path == null) return;
+
+    final txt = '''
 Registro de Muestreo
 =====================
-Contaminante: ${contaminante}
-Concentración: ${concentracion}
-Fecha/Hora: ${fechaHora}
+Contaminante  : $contaminante
+Concentración : ${concentracion.toStringAsFixed(4)} ppm
+Fecha/Hora    : $fechaHora
 
-Datos completos:
-${muestreo_ozone.toString()}
-${muestreo_ph.toString()}
-${muestreo_conductivity.toString()}
-""";
-        await file.writeAsString(content);
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Archivo guardado en: $outputPath')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
-  }
+PUNTOS (t = mm:ss,  y = valor)
 
-  // Implementación similar para _saveToCsv()
-  Future<void> saveToCsv(BuildContext context,
-   Text contaminante,
-   Text concentracion,
-   Text fechaHora,
-    Muestreo muestreo_ozone,  
-    Muestreo muestreo_ph,
-    Muestreo muestreo_conductivity
-) 
-  
-  
-   async {
-    try {
-      String? outputPath = await FilePicker.platform.saveFile(
-        dialogTitle: 'Guardar archivo CSV',
-        fileName: 'muestreo_${DateTime.now().millisecondsSinceEpoch}.csv',
-        allowedExtensions: ['csv'],
-      );
-      
-      if (outputPath != null) {
-        final file = File(outputPath);
-        StringBuffer content = StringBuffer();
-        content.writeln('Tipo,Fecha,Valor');
-        
-        // Agregar datos al CSV (igual que en el ejemplo anterior)
-        
-        
-        await file.writeAsString(content.toString());
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Archivo CSV guardado en: $outputPath')),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
-    }
+${_muestreoTxt('OZONO (ppm)',          muestreoOzone)}
+${_muestreoTxt('pH (unidades)',        muestreoPh)}
+${_muestreoTxt('CONDUCTIVIDAD (µS/cm)',muestreoConductivity)}
+''';
+
+    await File(path).writeAsString(txt);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Archivo guardado en: $path')),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: $e')),
+    );
   }
+}
+
+/* ─────────────────────────── CSV ─────────────────────────── */
+Future<void> saveToCsv(
+    BuildContext context,
+    String   contaminante,
+    double   concentracion,
+    DateTime fechaHora,
+    Muestreo muestreoOzone,
+    Muestreo muestreoPh,
+    Muestreo muestreoConductivity,
+    ) async {
+  try {
+    final path = await FilePicker.platform.saveFile(
+      dialogTitle: 'Guardar archivo CSV',
+      fileName   : 'muestreo_${DateTime.now().millisecondsSinceEpoch}.csv',
+      allowedExtensions: ['csv'],
+    );
+    if (path == null) return;
+
+    final b = StringBuffer();
+    b.writeln('contaminante,concentracion,fecha_hora');
+    b.writeln('$contaminante,$concentracion,$fechaHora\n');
+
+    b.writeln('serie,t,valor');
+    b.write(_muestreoCsv('ozone'       , muestreoOzone));
+    b.write(_muestreoCsv('ph'          , muestreoPh));
+    b.write(_muestreoCsv('conductivity', muestreoConductivity));
+
+    await File(path).writeAsString(b.toString());
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Archivo guardado en: $path')),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error: $e')),
+    );
+  }
+}

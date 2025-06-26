@@ -95,60 +95,6 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
     return map;
   }
 
-/* ────────── demo de simulación (sin tocar la BD) ────────── */
-  Future<void> _startSimulation() async {
-    if (_simulating) return;
-
-    final dur = await showDialog<int>(
-      context: context,
-      builder: (_) {
-        final ctrl = TextEditingController(text: '90');
-        return AlertDialog(
-          title   : const Text('Tiempo de la barra (seg)'),
-          content : TextField(
-            controller   : ctrl,
-            keyboardType : TextInputType.number,
-            decoration   : const InputDecoration(hintText: 'Ej: 90'),
-          ),
-          actions: [
-            TextButton(
-                onPressed : () => Navigator.pop(context),
-                child     : const Text('Cancelar')),
-            ElevatedButton(
-                onPressed : () =>
-                    Navigator.pop(context, int.tryParse(ctrl.text)),
-                child     : const Text('Aceptar')),
-          ],
-        );
-      },
-    );
-
-    if (dur == null || dur <= 0) return;
-
-    setState(() {
-      _simulating = true;
-      _elapsedSec = 0;
-      _totalSec   = dur;
-    });
-
-    _simTimer = Timer.periodic(const Duration(seconds: 1), (t) {
-      _elapsedSec++;
-
-      if (_elapsedSec >= _totalSec) {
-        t.cancel();
-        setState(() {
-          _simulating = false;
-          _elapsedSec = 0;
-          _totalSec   = 0;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Simulación visual finalizada')),
-        );
-      } else {
-        if (mounted) setState(() {}); // refresca barra
-      }
-    });
-  }
 
 /* ────────── UI ────────── */
   @override

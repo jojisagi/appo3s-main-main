@@ -1,11 +1,4 @@
 // lib/screens/visualizando_registro.dart
-//
-//  • Muestra siempre los puntos ORIGINALES guardados.
-//  • El botón **Simular** “redibuja” la gráfica punto-a-punto
-//    usando *los mismos valores*, sin generar aleatorios.
-//  • El documento se actualiza (up-sert) – no se duplica.
-//
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -13,7 +6,6 @@ import 'package:provider/provider.dart';
 
 import '../models/muestreo.dart';
 import '../models/record.dart';
-import '../models/sample.dart';
 import '../services/record_service.dart';
 import '../widgets/creando_conductivity_chart.dart';
 import '../widgets/creando_ozone_chart.dart';
@@ -30,28 +22,32 @@ class VisualizandoRegistros extends StatefulWidget {
 }
 
 class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
-/* ───── buffers ───── */
-  late Muestreo _ozOriginal, _phOriginal, _condOriginal; // datos reales
-  late Muestreo _oz, _ph, _cond;                         // se animan
+  /* ───── buffers ───── */
+  late Muestreo _ozOriginal, _phOriginal, _condOriginal; // datos reales guardados
+  late Muestreo _oz, _ph, _cond;                         // lo que se pinta/ani­ma
 
-/* ───── control animación ───── */
+  /* ───── control animación ───── */
   Timer? _timer;
   bool   _simulating = false;
-  int    _idx        = 0;       // punto actual 0…N-1
-  late int _total;              // puntos totales
+  int    _idx        = 0;      // punto actual 0…N-1
+  late int _total;             // puntos totales
 
+  /* ───── INIT ───── */
   @override
   void initState() {
     super.initState();
-    /* 1️⃣  clones con los datos reales */
+
+    // 1️⃣  Clones con los datos reales del registro
     _ozOriginal   = widget.record.muestreoOzone.deepCopy();
     _phOriginal   = widget.record.muestreoPh.deepCopy();
     _condOriginal = widget.record.muestreoConductivity.deepCopy();
-    /* 2️⃣  clones vacíos (mismo timing, y = 0) */
-    _oz   = _ozOriginal.cloneEmpty();
-    _ph   = _phOriginal.cloneEmpty();
-    _cond = _condOriginal.cloneEmpty();
-    _total = _ozOriginal.count;           // todas las series comparten pauta
+
+    // 2️⃣  MOSTRARLOS inmediatamente (no en 0)
+    _oz   = _ozOriginal.deepCopy();
+    _ph   = _phOriginal.deepCopy();
+    _cond = _condOriginal.deepCopy();
+
+    _total = _ozOriginal.count;          // todas las series comparten la pauta
   }
 
   @override
@@ -60,22 +56,22 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
     super.dispose();
   }
 
-/* ───── helpers ───── */
+  /* ───── helpers ───── */
   void _copiarPunto(Muestreo src, Muestreo dst, int i) {
-    if (i >= src.count) return;
-    dst.updateSample(i, src[i].copy());
+    if (i < src.count) dst.updateSample(i, src[i].copy());
   }
 
-/* ───── animación ───── */
+  /* ───── animación ───── */
   Future<void> _startSim() async {
     if (_simulating || _total == 0) return;
 
     setState(() {
       _simulating = true;
       _idx        = 0;
-      _oz  = _ozOriginal.cloneEmpty();
-      _ph  = _phOriginal.cloneEmpty();
-      _cond= _condOriginal.cloneEmpty();
+      // ⇢ vaciamos para reconstruir desde cero
+      _oz   = _ozOriginal.cloneEmpty();
+      _ph   = _phOriginal.cloneEmpty();
+      _cond = _condOriginal.cloneEmpty();
     });
 
     _timer = Timer.periodic(const Duration(milliseconds: 600), (t) async {
@@ -83,7 +79,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
       _copiarPunto(_phOriginal  , _ph  , _idx);
       _copiarPunto(_condOriginal, _cond, _idx);
 
-      setState(() {});           // repinta tras añadir el punto
+      setState(() {});
       _idx++;
 
       if (_idx >= _total) {
@@ -94,15 +90,20 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
   }
 
   Future<void> _saveAndFinish() async {
-    setState(() => _simulating = false);
+    // una vez completada la animación, consideramos los buffers “reales”
+    _ozOriginal   = _oz.deepCopy();
+    _phOriginal   = _ph.deepCopy();
+    _condOriginal = _cond.deepCopy();
 
     final actualizado = widget.record.copyWith(
       fechaHora            : DateTime.now(),
-      muestreoOzone        : _oz.deepCopy(),
-      muestreoPh           : _ph.deepCopy(),
-      muestreoConductivity : _cond.deepCopy(),
+      muestreoOzone        : _ozOriginal,
+      muestreoPh           : _phOriginal,
+      muestreoConductivity : _condOriginal,
     );
     await context.read<RecordService>().saveRecord(actualizado);
+
+    setState(() => _simulating = false);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -111,10 +112,10 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
     }
   }
 
-/* ───── UI ───── */
+  /* ───── UI ───── */
   @override
   Widget build(BuildContext context) {
-    final btn = ElevatedButton.styleFrom(
+    final btnStyle = ElevatedButton.styleFrom(
       backgroundColor: Theme.of(context).colorScheme.primary,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -134,13 +135,13 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
               fechaHora    : Text(DateFormat.yMd().add_jm()
                   .format(widget.record.fechaHora)),
             ),
-
             const SizedBox(height: 20),
+
             Center(
               child: ElevatedButton.icon(
                 icon : const Icon(Icons.play_arrow),
                 label: const Text('Simular'),
-                style: btn,
+                style: btnStyle,
                 onPressed: _simulating ? null : _startSim,
               ),
             ),
@@ -169,26 +170,24 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
                 spacing: 20,
                 children: [
                   ElevatedButton(
-                    style: btn,
+                    style: btnStyle,
                     onPressed: () => saveToTxt(
                       context,
-                      Text(widget.record.contaminante),
-                      Text('${widget.record.concentracion} ppm'),
-                      Text(DateFormat.yMd().add_jm()
-                          .format(widget.record.fechaHora)),
-                      _oz, _ph, _cond,
+                      widget.record.contaminante,      // String
+                      widget.record.concentracion,     // double
+                      widget.record.fechaHora,         // DateTime
+                      _ozOriginal, _phOriginal, _condOriginal,
                     ),
                     child: const Text('Guardar txt'),
                   ),
                   ElevatedButton(
-                    style: btn,
+                    style: btnStyle,
                     onPressed: () => saveToCsv(
                       context,
-                      Text(widget.record.contaminante),
-                      Text('${widget.record.concentracion} ppm'),
-                      Text(DateFormat.yMd().add_jm()
-                          .format(widget.record.fechaHora)),
-                      _oz, _ph, _cond,
+                      widget.record.contaminante,
+                      widget.record.concentracion,
+                      widget.record.fechaHora,
+                      _ozOriginal, _phOriginal, _condOriginal,
                     ),
                     child: const Text('Guardar csv'),
                   ),
