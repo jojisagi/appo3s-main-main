@@ -1,7 +1,12 @@
 // lib/screens/visualizando_registro.dart
-import 'dart:async';
-import 'dart:math';
+//
+//  • Muestra siempre los puntos ORIGINALES guardados.
+//  • El botón **Simular** “redibuja” la gráfica punto-a-punto
+//    usando *los mismos valores*, sin generar aleatorios.
+//  • El documento se actualiza (up-sert) – no se duplica.
+//
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -21,114 +26,95 @@ class VisualizandoRegistros extends StatefulWidget {
   const VisualizandoRegistros({super.key, required this.record});
 
   @override
-  State<VisualizandoRegistros> createState() =>
-      _VisualizandoRegistrosState();
+  State<VisualizandoRegistros> createState() => _VisualizandoRegistrosState();
 }
 
 class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
-  /* ───── Clones locales (para no tocar el registro original) ───── */
-  late Muestreo oz, cond, ph;
+/* ───── buffers ───── */
+  late Muestreo _ozOriginal, _phOriginal, _condOriginal; // datos reales
+  late Muestreo _oz, _ph, _cond;                         // se animan
 
-  /* ───── Control de simulación ───── */
-  Timer? _simTimer;
+/* ───── control animación ───── */
+  Timer? _timer;
   bool   _simulating = false;
-  int    _elapsed    = 0;
-  int    _total      = 0;
+  int    _idx        = 0;       // punto actual 0…N-1
+  late int _total;              // puntos totales
 
   @override
   void initState() {
     super.initState();
-    oz   = widget.record.muestreoOzone      .deepCopy();
-    cond = widget.record.muestreoConductivity.deepCopy();
-    ph   = widget.record.muestreoPh         .deepCopy();
+    /* 1️⃣  clones con los datos reales */
+    _ozOriginal   = widget.record.muestreoOzone.deepCopy();
+    _phOriginal   = widget.record.muestreoPh.deepCopy();
+    _condOriginal = widget.record.muestreoConductivity.deepCopy();
+    /* 2️⃣  clones vacíos (mismo timing, y = 0) */
+    _oz   = _ozOriginal.cloneEmpty();
+    _ph   = _phOriginal.cloneEmpty();
+    _cond = _condOriginal.cloneEmpty();
+    _total = _ozOriginal.count;           // todas las series comparten pauta
   }
 
   @override
   void dispose() {
-    _simTimer?.cancel();
+    _timer?.cancel();
     super.dispose();
   }
 
-  /* ───────────── Simulación ───────────── */
+/* ───── helpers ───── */
+  void _copiarPunto(Muestreo src, Muestreo dst, int i) {
+    if (i >= src.count) return;
+    dst.updateSample(i, src[i].copy());
+  }
 
-  Future<void> _pedirYArrancarSim() async {
-    if (_simulating) return;
-
-    final seg = await showDialog<int>(
-      context: context,
-      builder: (_) {
-        final ctrl = TextEditingController(text: '90');
-        return AlertDialog(
-          title: const Text('Duración (seg)'),
-          content: TextField(
-            controller: ctrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(hintText: 'Ej: 120'),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-            ElevatedButton(onPressed: () => Navigator.pop(context, int.tryParse(ctrl.text)), child: const Text('Iniciar')),
-          ],
-        );
-      },
-    );
-
-    if (seg == null || seg <= 0) return;
+/* ───── animación ───── */
+  Future<void> _startSim() async {
+    if (_simulating || _total == 0) return;
 
     setState(() {
       _simulating = true;
-      _elapsed    = 0;
-      _total      = seg;
-      oz  .clearSamples();
-      cond.clearSamples();
-      ph  .clearSamples();
+      _idx        = 0;
+      _oz  = _ozOriginal.cloneEmpty();
+      _ph  = _phOriginal.cloneEmpty();
+      _cond= _condOriginal.cloneEmpty();
     });
 
-    final rnd = Random();
-    _simTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
-      _elapsed++;
+    _timer = Timer.periodic(const Duration(milliseconds: 600), (t) async {
+      _copiarPunto(_ozOriginal  , _oz  , _idx);
+      _copiarPunto(_phOriginal  , _ph  , _idx);
+      _copiarPunto(_condOriginal, _cond, _idx);
 
-      oz  .addSample(_make(_elapsed, rnd.nextDouble()));          // 0-1 ppm
-      cond.addSample(_make(_elapsed, rnd.nextDouble()*2000));     // 0-2000 µS
-      ph  .addSample(_make(_elapsed, rnd.nextDouble()*13 + 1));   // 1-14 pH
+      setState(() {});           // repinta tras añadir el punto
+      _idx++;
 
-      setState(() {});
-      if (_elapsed >= _total) {
+      if (_idx >= _total) {
         t.cancel();
-        await _finSim();
+        await _saveAndFinish();
       }
     });
   }
 
-  Sample _make(int s, double y) => Sample(
-    numSample: 0,
-    selectedMinutes: s ~/ 60,
-    selectedSeconds: s % 60,
-    y: y,
-  );
-
-  Future<void> _finSim() async {
+  Future<void> _saveAndFinish() async {
     setState(() => _simulating = false);
 
-    final nuevo = widget.record.copyWith(
+    final actualizado = widget.record.copyWith(
       fechaHora            : DateTime.now(),
-      muestreoOzone       : oz  .deepCopy(),
-      muestreoConductivity: cond.deepCopy(),
-      muestreoPh          : ph  .deepCopy(),
+      muestreoOzone        : _oz.deepCopy(),
+      muestreoPh           : _ph.deepCopy(),
+      muestreoConductivity : _cond.deepCopy(),
     );
-    await context.read<RecordService>().saveRecord(nuevo, sync:false);
+    await context.read<RecordService>().saveRecord(actualizado);
 
     if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Simulación guardada')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Simulación guardada')),
+      );
     }
   }
 
-  /* ───────────── UI ───────────── */
-
+/* ───── UI ───── */
   @override
   Widget build(BuildContext context) {
-    final btnStyle = ElevatedButton.styleFrom(
+    final btn = ElevatedButton.styleFrom(
       backgroundColor: Theme.of(context).colorScheme.primary,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -145,69 +131,64 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
             record_widget_simple(
               contaminante : Text(widget.record.contaminante),
               concentracion: Text('${widget.record.concentracion} ppm'),
-              fechaHora    : Text(DateFormat.yMd().add_jm().format(widget.record.fechaHora)),
+              fechaHora    : Text(DateFormat.yMd().add_jm()
+                  .format(widget.record.fechaHora)),
             ),
 
-            /* ───────── Botón SIMULAR centrado ───────── */
             const SizedBox(height: 20),
             Center(
               child: ElevatedButton.icon(
                 icon : const Icon(Icons.play_arrow),
                 label: const Text('Simular'),
-                style: btnStyle,
-                onPressed: _simulating ? null : _pedirYArrancarSim,
+                style: btn,
+                onPressed: _simulating ? null : _startSim,
               ),
             ),
-
             if (_simulating) ...[
               const SizedBox(height: 12),
               LinearProgressIndicator(
-                value: _elapsed / max(_total, 1),
+                value: _total == 0 ? 0 : _idx / _total,
                 backgroundColor: Colors.grey.shade300,
               ),
             ],
 
-            /* ───────── Gráficas ───────── */
             const SizedBox(height: 24),
-            Creando_OzoneChart(muestreo: oz),
+            Creando_OzoneChart(muestreo: _oz),
             const SizedBox(height: 24),
             Row(
               children: [
-                Expanded(child: Creando_ConductivityChart(muestreo: cond)),
+                Expanded(child: Creando_ConductivityChart(muestreo: _cond)),
                 const SizedBox(width: 20),
-                Expanded(child: Creando_PhChart(muestreo: ph)),
+                Expanded(child: Creando_PhChart(muestreo: _ph)),
               ],
             ),
 
-            /* ───────── Botones de descarga centrados ───────── */
             const SizedBox(height: 32),
             Center(
               child: Wrap(
                 spacing: 20,
                 children: [
                   ElevatedButton(
-                    style: btnStyle,
+                    style: btn,
                     onPressed: () => saveToTxt(
                       context,
                       Text(widget.record.contaminante),
                       Text('${widget.record.concentracion} ppm'),
-                      Text(DateFormat.yMd().add_jm().format(widget.record.fechaHora)),
-                      oz,
-                      ph,
-                      cond,
+                      Text(DateFormat.yMd().add_jm()
+                          .format(widget.record.fechaHora)),
+                      _oz, _ph, _cond,
                     ),
                     child: const Text('Guardar txt'),
                   ),
                   ElevatedButton(
-                    style: btnStyle,
+                    style: btn,
                     onPressed: () => saveToCsv(
                       context,
                       Text(widget.record.contaminante),
                       Text('${widget.record.concentracion} ppm'),
-                      Text(DateFormat.yMd().add_jm().format(widget.record.fechaHora)),
-                      oz,
-                      ph,
-                      cond,
+                      Text(DateFormat.yMd().add_jm()
+                          .format(widget.record.fechaHora)),
+                      _oz, _ph, _cond,
                     ),
                     child: const Text('Guardar csv'),
                   ),
