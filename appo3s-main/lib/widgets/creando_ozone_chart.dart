@@ -46,7 +46,7 @@ class Creando_OzoneChart extends StatelessWidget {
     final original = samples
         .map((s) => FlSpot(
       (s.selectedMinutes * 60 + s.selectedSeconds).toDouble(),
-      s.y ?? 0.0,
+      s.y,
     ))
         .toList();
 
@@ -59,7 +59,7 @@ class Creando_OzoneChart extends StatelessWidget {
     }
 
     /* ───────────── Estadísticas ───────────── */
-    final ys   = samples.map((s) => s.y ?? 0.0).toList();
+    final ys   = samples.map((s) => s.y).toList();
     final maxY = ys.reduce((a, b) => a > b ? a : b);
     final minY = ys.reduce((a, b) => a < b ? a : b);
     final avgY = ys.fold<double>(0, (p, c) => p + c) / ys.length;
