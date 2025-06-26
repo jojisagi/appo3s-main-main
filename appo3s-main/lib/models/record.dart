@@ -1,71 +1,103 @@
-import '../models/muestreo.dart';
+// lib/models/record.dart
+import 'package:meta/meta.dart';
+import 'muestreo.dart';
 
+@immutable
 class Record {
-
-  final String contaminante;
-  final double concentracion;
+  final String   id;             // opcional (Mongo _id → String)
+  final String   contaminante;
+  final double   concentracion;
   final DateTime fechaHora;
-  final Muestreo muestreo_ozone;
-  final Muestreo muestreo_ph;
-  final Muestreo muestreo_conductivity;
 
+  final Muestreo muestreoOzone;
+  final Muestreo muestreoPh;
+  final Muestreo muestreoConductivity;
 
-
-  Record({
+  const Record({
+    this.id = '',
     required this.contaminante,
     required this.concentracion,
     required this.fechaHora,
-    Muestreo? muestreo_ozone,
-    Muestreo? muestreo_ph,
-    Muestreo? muestreo_conductivity,
-  })  : muestreo_ozone = muestreo_ozone ?? Muestreo(),
-        muestreo_ph = muestreo_ph ?? Muestreo(),
-        muestreo_conductivity = muestreo_conductivity ?? Muestreo();
+    required this.muestreoOzone,
+    required this.muestreoPh,
+    required this.muestreoConductivity,
+  });
 
-  factory Record.fromJson(Map<String, dynamic> json) => Record(
-       
-        contaminante: json['contaminante'] as String,
-        concentracion: (json['concentracion'] as num).toDouble(),
-        fechaHora: DateTime.parse(json['fechaHora'] as String),
-        muestreo_ozone: json['muestreo_ozone'] != null
-            ? Muestreo.fromJson(json['muestreo_ozone'] as Map<String, dynamic>)
-            : null,
-        muestreo_ph: json['muestreo_ph'] != null
-            ? Muestreo.fromJson(json['muestreo_ph'] as Map<String, dynamic>)
-            : null,
-        muestreo_conductivity: json['muestreo_conductivity'] != null
-            ? Muestreo.fromJson(
-                json['muestreo_conductivity'] as Map<String, dynamic>)
-            : null,
-      );
+  /* ─── único constructor desde JSON (REST / Mongo) ─── */
+  factory Record.fromJson(
+      Map<String, dynamic> json, {
+        String id = '',
+      }) {
+    /* --- fechaHora puede venir de varias formas --- */
+    final rawFecha = json['fechaHora'];
 
-  Map<String, dynamic> toJson() => {
+    DateTime fecha;
+    if (rawFecha is DateTime) {
+      fecha = rawFecha;
+    } else if (rawFecha is int) {
+      // milisegundos desde epoch
+      fecha = DateTime.fromMillisecondsSinceEpoch(rawFecha);
+    } else if (rawFecha is String) {
+      fecha = DateTime.tryParse(rawFecha) ?? DateTime.now();
+    } else {
+      fecha = DateTime.now();
+    }
 
-        'contaminante': contaminante,
-        'concentracion': concentracion,
-        'fechaHora': fechaHora.toIso8601String(),
-        'muestreo_ozone': muestreo_ozone.toJson(),
-        'muestreo_ph': muestreo_ph.toJson(),
-        'muestreo_conductivity': muestreo_conductivity.toJson(),
-      };
-
-  Record copyWith({
-    String? tipo,
-    String? contaminante,
-    double? concentracion,
-    DateTime? fechaHora,
-    Muestreo? muestreo_ozone,
-    Muestreo? muestreo_ph,
-    Muestreo? muestreo_conductivity,
-  }) {
     return Record(
- 
-      contaminante: contaminante ?? this.contaminante,
-      concentracion: concentracion ?? this.concentracion,
-      fechaHora: fechaHora ?? this.fechaHora,
-      muestreo_ozone: muestreo_ozone ?? this.muestreo_ozone,
-      muestreo_ph: muestreo_ph ?? this.muestreo_ph,
-      muestreo_conductivity: muestreo_conductivity ?? this.muestreo_conductivity,
+      id             : id, // por si lo llamas con BSON _id
+      contaminante   : json['contaminante']  as String? ?? '',
+      concentracion  : (json['concentracion'] as num?)?.toDouble() ?? 0.0,
+      fechaHora      : fecha,
+      // Si el campo no existe o es null ⇒ Muestreo vacío
+      muestreoOzone       : Muestreo.fromJson(
+          (json['muestreo_ozone']       as Map<String,dynamic>?) ?? {}),
+      muestreoPh          : Muestreo.fromJson(
+          (json['muestreo_ph']          as Map<String,dynamic>?) ?? {}),
+      muestreoConductivity: Muestreo.fromJson(
+          (json['muestreo_conductivity'] as Map<String,dynamic>?) ?? {}),
     );
   }
+
+  Map<String, dynamic> toJson() => {
+    // Si usas el _id de Mongo como String lo añades aquí
+    if (id.isNotEmpty) 'id': id,
+    'contaminante'         : contaminante,
+    'concentracion'        : concentracion,
+    // Guarda como ISO-8601; en tu API lo puedes convertir si quieres
+    'fechaHora'            : fechaHora.toIso8601String(),
+    'muestreo_ozone'       : muestreoOzone.toJson(),
+    'muestreo_ph'          : muestreoPh.toJson(),
+    'muestreo_conductivity': muestreoConductivity.toJson(),
+  };
+
+  /* ─── copias ─── */
+  Record copyWith({
+    String?   id,
+    String?   contaminante,
+    double?   concentracion,
+    DateTime? fechaHora,
+    Muestreo? muestreoOzone,
+    Muestreo? muestreoPh,
+    Muestreo? muestreoConductivity,
+  }) =>
+      Record(
+        id                   : id ?? this.id,
+        contaminante         : contaminante ?? this.contaminante,
+        concentracion        : concentracion ?? this.concentracion,
+        fechaHora            : fechaHora ?? this.fechaHora,
+        muestreoOzone        : muestreoOzone        ?? this.muestreoOzone,
+        muestreoPh           : muestreoPh           ?? this.muestreoPh,
+        muestreoConductivity : muestreoConductivity ?? this.muestreoConductivity,
+      );
+
+  /// Copia profunda (clona los muestreos)
+  Record deepCopy() => Record(
+    id                   : id,
+    contaminante         : contaminante,
+    concentracion        : concentracion,
+    fechaHora            : fechaHora,
+    muestreoOzone        : muestreoOzone.deepCopy(),
+    muestreoPh           : muestreoPh.deepCopy(),
+    muestreoConductivity : muestreoConductivity.deepCopy(),
+  );
 }

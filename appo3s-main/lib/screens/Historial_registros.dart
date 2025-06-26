@@ -1,4 +1,4 @@
-// screens/historial_registros.dart
+// lib/screens/historial_registros.dart
 import 'dart:async';
 import 'dart:math';
 
@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import '../models/muestreo.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
 import 'visualizando_registro.dart';
@@ -30,7 +29,7 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
   bool      _loading     = true;
   String?   _error;
 
-  // polling BD + demo
+  /*  demo de simulación  */
   Timer? _poller, _simTimer;
   bool   _simulating = false;
   int    _elapsedSec = 0, _totalSec = 0;
@@ -61,8 +60,7 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
 /* ────────── descarga desde Mongo ────────── */
   Future<void> _fetch() async {
     try {
-      await context
-          .read<RecordService>()
+      await context.read<RecordService>()
           .fetchAll()
           .timeout(const Duration(seconds: 20));
     } on TimeoutException {
@@ -76,11 +74,12 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
 
 /* ────────── filtros y agrupado ────────── */
   List<Record> _applyFilters(RecordService srv) {
-    var list = _selectedDate == null ? srv.records : srv.byDate(_selectedDate!);
+    var list = _selectedDate == null
+        ? srv.records
+        : srv.byDate(_selectedDate!);
 
     if (_search.isNotEmpty) {
-      list = list
-          .where((r) =>
+      list = list.where((r) =>
           r.contaminante.toLowerCase().contains(_search.toLowerCase()))
           .toList();
     }
@@ -96,28 +95,29 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
     return map;
   }
 
-/* ────────── demo de simulación ────────── */
+/* ────────── demo de simulación (sin tocar la BD) ────────── */
   Future<void> _startSimulation() async {
-    if (_simulating) return;                // ya corriendo
+    if (_simulating) return;
 
     final dur = await showDialog<int>(
       context: context,
       builder: (_) {
         final ctrl = TextEditingController(text: '90');
         return AlertDialog(
-          title: const Text('Tiempo de muestreo (segundos)'),
-          content: TextField(
-            controller: ctrl,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(hintText: 'Ej: 90'),
+          title   : const Text('Tiempo de la barra (seg)'),
+          content : TextField(
+            controller   : ctrl,
+            keyboardType : TextInputType.number,
+            decoration   : const InputDecoration(hintText: 'Ej: 90'),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            TextButton(
+                onPressed : () => Navigator.pop(context),
+                child     : const Text('Cancelar')),
             ElevatedButton(
-              onPressed: () =>
-                  Navigator.pop(context, int.tryParse(ctrl.text)),
-              child: const Text('Aceptar'),
-            ),
+                onPressed : () =>
+                    Navigator.pop(context, int.tryParse(ctrl.text)),
+                child     : const Text('Aceptar')),
           ],
         );
       },
@@ -131,27 +131,21 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
       _totalSec   = dur;
     });
 
-    _simTimer = Timer.periodic(const Duration(seconds: 1), (t) async {
+    _simTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       _elapsedSec++;
 
-      if (_elapsedSec == _totalSec) {
-        final rnd = Random();
-
-        final nuevo = Record(
-          contaminante : 'O₃ (demo)',
-          concentracion: rnd.nextDouble() * 0.7 + 0.3, // 0.3-1.0 ppm
-          fechaHora    : DateTime.now(),
-          muestreo_ozone       : Muestreo(),
-          muestreo_ph          : Muestreo(),
-          muestreo_conductivity: Muestreo(),
-        );
-
-        await context.read<RecordService>().addRecord(nuevo);
-
+      if (_elapsedSec >= _totalSec) {
         t.cancel();
-        setState(() => _simulating = false);
+        setState(() {
+          _simulating = false;
+          _elapsedSec = 0;
+          _totalSec   = 0;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Simulación visual finalizada')),
+        );
       } else {
-        if (mounted) setState(() {}); // update barra
+        if (mounted) setState(() {}); // refresca barra
       }
     });
   }
@@ -173,7 +167,7 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: LinearProgressIndicator(
-                value: _elapsedSec / _totalSec,
+                value: _elapsedSec / max(_totalSec, 1),
                 backgroundColor: Colors.grey.shade300,
               ),
             ),
@@ -215,12 +209,14 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
     bottom: PreferredSize(
       preferredSize: const Size.fromHeight(38),
       child: Padding(
-        padding: const EdgeInsets.only(left: 12, right: 4, bottom: 4, top: 6),
+        padding:
+        const EdgeInsets.only(left: 12, right: 4, bottom: 4, top: 6),
         child: Row(
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                icon : const Icon(Icons.filter_alt_outlined, color: Colors.white),
+                icon: const Icon(Icons.filter_alt_outlined,
+                    color: Colors.white),
                 label: Text(
                   _selectedDate == null
                       ? 'Filtrar fecha'
@@ -235,8 +231,8 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
                   final d = await showDatePicker(
                     context: context,
                     initialDate: _selectedDate ?? DateTime.now(),
-                    firstDate : DateTime(2020),
-                    lastDate  : DateTime(2100),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2100),
                   );
                   if (d != null) setState(() => _selectedDate = d);
                 },
@@ -244,7 +240,7 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
             ),
             IconButton(
               tooltip: 'Recargar',
-              icon : const Icon(Icons.refresh),
+              icon: const Icon(Icons.refresh),
               onPressed: () async {
                 setState(() => _loading = true);
                 await _fetch();
@@ -295,8 +291,8 @@ class _RegistroList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fetch =
-        context.findAncestorStateOfType<_HistorialRegistrosState>()!._fetch;
+    final fetch = context
+        .findAncestorStateOfType<_HistorialRegistrosState>()!._fetch;
 
     return RefreshIndicator(
       onRefresh: fetch,
@@ -311,7 +307,7 @@ class _RegistroList extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         itemCount: days.length,
         itemBuilder: (_, i) {
-          final day  = days[i];
+          final day = days[i];
           final list = grouped[day]!;
           return ExpansionTile(
             initiallyExpanded: i == 0,
@@ -325,17 +321,18 @@ class _RegistroList extends StatelessWidget {
                 margin: const EdgeInsets.symmetric(
                     horizontal: 8, vertical: 4),
                 child: ListTile(
-                  leading : const Icon(Icons.analytics_outlined),
-                  title   : Text(r.contaminante),
+                  leading: const Icon(Icons.analytics_outlined),
+                  title: Text(r.contaminante),
                   subtitle: Text(DateFormat.jm().format(r.fechaHora)),
-                  trailing: Text('${r.concentracion.toStringAsFixed(2)} ppm'),
+                  trailing:
+                  Text('${r.concentracion.toStringAsFixed(2)} ppm'),
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => VisualizandoRegistros(record: r),  // ← único argumento
+                      builder: (_) =>
+                          VisualizandoRegistros(record: r),
                     ),
                   ),
-
                 ),
               );
             }).toList(),

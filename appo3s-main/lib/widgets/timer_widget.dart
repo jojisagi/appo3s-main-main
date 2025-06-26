@@ -1,23 +1,33 @@
+// lib/widgets/timer_widget.dart
 import 'package:flutter/material.dart';
-import 'package:appo3s/models/muestreo.dart';
 import 'package:flutter/services.dart';
+
+import '../models/muestreo.dart';
+
 class TimerWidget extends StatefulWidget {
-  final Muestreo muestreo;
-  
-  const TimerWidget({super.key, required this.muestreo});
+  final Muestreo     muestreo;
+  final VoidCallback? onStart;   // callback externo
+
+  const TimerWidget({
+    super.key,
+    required this.muestreo,
+    this.onStart,
+  });
 
   @override
   State<TimerWidget> createState() => _TimerWidgetState();
 }
 
-class _TimerWidgetState extends State<TimerWidget> with SingleTickerProviderStateMixin {
+class _TimerWidgetState extends State<TimerWidget>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+
   Duration _currentDuration = Duration.zero;
-  bool _isTimerRunning = false;
-  
-  // Controladores para minutos y segundos
-  final TextEditingController _minutesController = TextEditingController(text: '0');
-  final TextEditingController _secondsController = TextEditingController(text: '30');
+  bool     _isTimerRunning   = false;
+
+  /* ────────── inputs mm:ss ────────── */
+  final _minutesCtrl = TextEditingController(text: '0');
+  final _secondsCtrl = TextEditingController(text: '30');
 
   @override
   void initState() {
@@ -26,51 +36,68 @@ class _TimerWidgetState extends State<TimerWidget> with SingleTickerProviderStat
       vsync: this,
       duration: const Duration(hours: 24),
     )..addListener(() {
-        setState(() {
-          _currentDuration = _controller.duration! * _controller.value;
-        });
+      setState(() {
+        _currentDuration = _controller.duration! * _controller.value;
       });
+    });
 
-    // Inicializar con el valor existente si hay
-    if (widget.muestreo.maxDuration != null) {
-      _minutesController.text = widget.muestreo.maxDuration!.inMinutes.toString();
-      _secondsController.text = widget.muestreo.maxDuration!.inSeconds.remainder(60).toString().padLeft(2, '0');
+    // carga duración máxima, si existiera
+    final maxDur = widget.muestreo.maxDuration;
+    if (maxDur != null) {
+      _minutesCtrl.text = maxDur.inMinutes.toString();
+      _secondsCtrl.text =
+          maxDur.inSeconds.remainder(60).toString().padLeft(2, '0');
     }
   }
 
   @override
   void dispose() {
     _controller.dispose();
-    _minutesController.dispose();
-    _secondsController.dispose();
+    _minutesCtrl.dispose();
+    _secondsCtrl.dispose();
     super.dispose();
   }
 
+  /* ─────────────────── acciones ─────────────────── */
+
   void _setMaxDuration() {
-    final minutes = int.tryParse(_minutesController.text) ?? 0;
-    final seconds = int.tryParse(_secondsController.text) ?? 0;
-    final newDuration = Duration(minutes: minutes, seconds: seconds);
+    final m = int.tryParse(_minutesCtrl.text) ?? 0;
+    final s = int.tryParse(_secondsCtrl.text) ?? 0;
+    final dur = Duration(minutes: m, seconds: s);
 
-    setState(() {
-      widget.muestreo.maxDuration = newDuration;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Duración máxima establecida a ${_formatDuration(newDuration)}')));
-  }
-
-  void _startTimer() {
-    if (widget.muestreo.maxDuration == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Primero establece un tiempo máximo')));
+    if (dur.inSeconds == 0) {
+      _msg('La duración no puede ser 0 s');
       return;
     }
 
+    setState(() => widget.muestreo.maxDuration = dur);
+    _msg('Duración máxima: ${_fmt(dur)}');
+  }
+
+  void _startTimer() {
+    // ① Verificar límite
+    final maxDur = widget.muestreo.maxDuration;
+    if (maxDur == null) {
+      _msg('Primero establece un tiempo máximo');
+      return;
+    }
+
+    // ② Debe existir al menos UNA muestra
+    if (widget.muestreo.isEmpty) {
+      _msg('Debes definir al menos una muestra antes de iniciar');
+      return;
+    }
+
+    // ③ Arranca
     setState(() {
-      _controller.duration = widget.muestreo.maxDuration;
-      _controller.forward(from: 0);
+      _controller
+        ..duration = maxDur
+        ..forward(from: 0);
       _isTimerRunning = true;
     });
+
+    // notifica a la pantalla padre
+    widget.onStart?.call();
   }
 
   void _stopTimer() {
@@ -84,140 +111,116 @@ class _TimerWidgetState extends State<TimerWidget> with SingleTickerProviderStat
     setState(() {
       _controller.reset();
       _currentDuration = Duration.zero;
-      _isTimerRunning = false;
+      _isTimerRunning  = false;
     });
   }
 
-  String _formatDuration(Duration duration) {
-    String twoDigits(int n) => n.toString().padLeft(2, '0');
-    final minutes = twoDigits(duration.inMinutes.remainder(60));
-    final seconds = twoDigits(duration.inSeconds.remainder(60));
-    return '$minutes:$seconds';
+  /* ─────────────────── helpers ─────────────────── */
+
+  void _msg(String txt) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(txt)));
+
+  String _fmt(Duration d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.inMinutes.remainder(60))}:${two(d.inSeconds.remainder(60))}';
   }
+
+  /* ─────────────────── UI ─────────────────── */
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text(
-            'CONTROL DE TIEMPO',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11),
-          ),
-          const SizedBox(height: 6),
-          
-          // Selector de tiempo máximo (estilo similar a EditingSamples)
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _minutesController,
-                  decoration: const InputDecoration(
-                    labelText: 'Minutos',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    isDense: true,
-                  ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextFormField(
-                  controller: _secondsController,
-                  decoration: const InputDecoration(
-                    labelText: 'Segundos',
-                    border: OutlineInputBorder(),
-                    contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                    isDense: true,
-                  ),
-                  keyboardType: TextInputType.number,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
-                    LengthLimitingTextInputFormatter(2),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                onPressed: _setMaxDuration,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                  minimumSize: Size.zero,
-                ),
-                child: const Text('SET', style: TextStyle(fontSize: 12)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(8),
+    decoration: BoxDecoration(
+      color: Colors.grey[200],
+      border: Border.all(color: Colors.grey[300]!),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('CONTROL DE TIEMPO',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11)),
+        const SizedBox(height: 6),
 
-          // Display del temporizador
-          Container(
-            padding: const EdgeInsets.all(12),
-            child: Center(
-              child: Text(
-                _formatDuration(_currentDuration),
-                style: const TextStyle(
+        /* —— selector mm:ss —— */
+        Row(children: [
+          _numField(_minutesCtrl, 'Min'),
+          const SizedBox(width: 8),
+          _numField(_secondsCtrl, 'Seg', limit: 2),
+          const SizedBox(width: 8),
+          ElevatedButton(
+            onPressed: _setMaxDuration,
+            style: ElevatedButton.styleFrom(
+              padding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+            child: const Text('SET', style: TextStyle(fontSize: 12)),
+          ),
+        ]),
+        const SizedBox(height: 8),
+
+        /* —— display —— */
+        Center(
+          child: Text(_fmt(_currentDuration),
+              style: const TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  fontFamily: 'RobotoMono'
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 6),
-          
-          if (widget.muestreo.maxDuration != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+                  fontFamily: 'RobotoMono')),
+        ),
+        if (widget.muestreo.maxDuration != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Center(
               child: Text(
-                'Límite: ${_formatDuration(widget.muestreo.maxDuration!)}',
-                style: TextStyle(color: Colors.grey[600], fontSize: 11),
-                textAlign: TextAlign.center,
+                'Límite: ${_fmt(widget.muestreo.maxDuration!)}',
+                style: const TextStyle(fontSize: 11, color: Colors.grey),
               ),
             ),
-
-          // Controles del timer
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              ElevatedButton(
-                onPressed: _isTimerRunning ? _stopTimer : _startTimer,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: _isTimerRunning ? Colors.red : Colors.green,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  minimumSize: Size.zero,
-                ),
-                child: Text(
-                  _isTimerRunning ? 'DETENER' : 'INICIAR',
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                ),
-              ),
-              const SizedBox(width: 12),
-              ElevatedButton(
-                onPressed: _resetTimer,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                  minimumSize: Size.zero,
-                ),
-                child: const Text(
-                  'RESET',
-                  style: TextStyle(color: Colors.white, fontSize: 12),
-                ),
-              ),
-            ],
           ),
-        ],
-      ),
-    );
-  }
+        const SizedBox(height: 6),
+
+        /* —— botones —— */
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          _ctrlBtn(
+            _isTimerRunning ? 'DETENER' : 'INICIAR',
+            _isTimerRunning ? _stopTimer : _startTimer,
+            _isTimerRunning ? Colors.red : Colors.green,
+          ),
+          const SizedBox(width: 12),
+          _ctrlBtn('RESET', _resetTimer, Colors.blue),
+        ]),
+      ],
+    ),
+  );
+
+  /* —— widgets auxiliares —— */
+
+  Widget _numField(TextEditingController c, String lbl, {int? limit}) =>
+      Expanded(
+        child: TextFormField(
+          controller: c,
+          decoration: InputDecoration(
+            labelText: lbl,
+            border: const OutlineInputBorder(),
+            isDense: true,
+            contentPadding:
+            const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          ),
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            if (limit != null) LengthLimitingTextInputFormatter(limit),
+          ],
+        ),
+      );
+
+  Widget _ctrlBtn(String txt, VoidCallback fn, Color c) => ElevatedButton(
+    onPressed: fn,
+    style: ElevatedButton.styleFrom(
+      backgroundColor: c,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    ),
+    child: Text(txt,
+        style: const TextStyle(color: Colors.white, fontSize: 12)),
+  );
 }

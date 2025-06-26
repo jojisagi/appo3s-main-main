@@ -3,17 +3,12 @@ import 'package:flutter/services.dart';
 import '../models/muestreo.dart';
 import '../models/sample.dart';
 
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import '../models/muestreo.dart';
-import '../models/sample.dart';
-
 class EditingSamples extends StatefulWidget {
-  final Muestreo muestreo;
+  final Muestreo           muestreo;          // contiene maxDuration
   final Function(Muestreo)? onSamplesUpdated;
-  
+
   const EditingSamples({
-    super.key, 
+    super.key,
     required this.muestreo,
     this.onSamplesUpdated,
   });
@@ -25,177 +20,160 @@ class EditingSamples extends StatefulWidget {
 class _EditingSamplesState extends State<EditingSamples> {
   final _formKey = GlobalKey<FormState>();
 
-  void _addSample() {
-    setState(() {
-      final newSample = _createNewSample();
-      widget.muestreo.addSample(newSample);
-      _updateAndNotify();
-    });
+  /* ╭──── helpers límites ────╮ */
+  int? get _maxSeconds => widget.muestreo.maxDuration?.inSeconds;
+  bool _exceed(int sec) => _maxSeconds != null && sec > _maxSeconds!;
+  void _warn() => ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(
+        content: Text('La muestra excede el tiempo máximo permitido')),
+  );
+
+  void _ordenarYNotificar() {
+    widget.muestreo.sortByTime();
+    widget.muestreo.renum();
+    widget.onSamplesUpdated?.call(widget.muestreo.deepCopy());
   }
 
-  Sample _createNewSample() {
+  /* ╭──── CRUD ────╮ */
+  Sample _nextSample() {
+    // primer punto
     if (widget.muestreo.isEmpty) {
       return Sample(
-        numSample: 1,
-        selectedMinutes: 0,
-        selectedSeconds: 30,
-        y: 0.0,
-      );
-    } else {
-      final lastSample = widget.muestreo.getSample(widget.muestreo.count - 1);
-      var newMinutes = lastSample.selectedMinutes;
-      var newSeconds = lastSample.selectedSeconds + 30;
-      
-      if (newSeconds >= 60) {
-        newMinutes += newSeconds ~/ 60;
-        newSeconds = newSeconds % 60;
-      }
-      
-      return Sample(
-        numSample: widget.muestreo.count + 1,
-        selectedMinutes: newMinutes,
-        selectedSeconds: newSeconds,
-        y: lastSample.y ?? 0.0,
+        numSample       : 1,
+        selectedMinutes : 0,
+        selectedSeconds : 5,
+        y               : 0.0,
       );
     }
+
+    // a partir del último
+    final last = widget.muestreo.last;
+    var m   = last.selectedMinutes;
+    var sec = last.selectedSeconds + 5;
+    if (sec >= 60) {
+      m  += sec ~/ 60;
+      sec = sec % 60;
+    }
+    return Sample(
+      numSample       : last.numSample + 1,
+      selectedMinutes : m,
+      selectedSeconds : sec,
+      y               : 0.0,
+    );
   }
 
-  void _updateAndNotify() {
-    _sortAndRenumberSamples();
-    _notifyParent();
-  }
-
-  void _sortAndRenumberSamples() {
-    final samples = widget.muestreo.samples.toList();
-    samples.sort((a, b) {
-      final aTotal = a.selectedMinutes * 60 + a.selectedSeconds;
-      final bTotal = b.selectedMinutes * 60 + b.selectedSeconds;
-      return aTotal.compareTo(bTotal);
+  void _addSample() {
+    final s = _nextSample();
+    final total = s.totalSeconds;
+    if (_exceed(total)) {
+      _warn();
+      return;
+    }
+    setState(() {
+      widget.muestreo.addSample(s);
+      _ordenarYNotificar();
     });
-    
-    widget.muestreo.clearSamples();
-    for (int i = 0; i < samples.length; i++) {
-      widget.muestreo.addSample(samples[i].copyWith(numSample: i + 1));
+  }
+
+  void _updateSample(int index, Sample upd) {
+    final total = upd.totalSeconds;
+    if (_exceed(total)) {
+      _warn();
+      return;
     }
+    setState(() {
+      widget.muestreo.updateSample(index, upd);
+      _ordenarYNotificar();
+    });
   }
 
   void _removeSample(int index) {
     setState(() {
       widget.muestreo.removeSample(index);
-      _updateAndNotify();
+      _ordenarYNotificar();
     });
   }
 
-  void _updateSample(int index, Sample updatedSample) {
-    setState(() {
-      widget.muestreo.updateSample(index, updatedSample);
-      _updateAndNotify();
-    });
-  }
-
-  void _notifyParent() {
-    widget.onSamplesUpdated?.call(widget.muestreo.deepCopy());
-  }
-
+  /* ╭──── UI ────╮ */
   @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+  Widget build(BuildContext context) => SingleChildScrollView(
+    padding: const EdgeInsets.all(16),
+    child: Form(
+      key: _formKey,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListView.builder(
+            shrinkWrap : true,
+            physics    : const NeverScrollableScrollPhysics(),
+            itemCount  : widget.muestreo.count,
+            itemBuilder: (_, i) => _sampleCard(widget.muestreo[i], i),
+          ),
+          const SizedBox(height: 12),
+          ElevatedButton(
+              onPressed: _addSample, child: const Text('Add Sample')),
+        ],
+      ),
+    ),
+  );
+
+  Widget _sampleCard(Sample s, int idx) => Card(
+    margin: const EdgeInsets.symmetric(vertical: 8),
+    child: Padding(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              ListView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: widget.muestreo.count,
-                itemBuilder: (context, index) {
-                  final sample = widget.muestreo.getSample(index);
-                  return _buildSampleCard(sample, index);
-                },
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: _addSample,
-                child: const Text('Add Sample'),
+              Text('Sample ${s.numSample} – ${s.formattedTime}'),
+              IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red),
+                onPressed: () => _removeSample(idx),
               ),
             ],
           ),
-        ),
+          Row(children: [
+            _timeField(
+              label   : 'Min',
+              initial : s.selectedMinutes,
+              onChange: (v) => _updateSample(
+                idx,
+                s.copyWith(selectedMinutes: v),
+              ),
+            ),
+            const SizedBox(width: 16),
+            _timeField(
+              label   : 'Seg',
+              initial : s.selectedSeconds,
+              limit   : 2,
+              onChange: (v) => _updateSample(
+                idx,
+                s.copyWith(selectedSeconds: v.clamp(0, 59)),
+              ),
+            ),
+          ]),
+        ],
       ),
-    );
-  }
+    ),
+  );
 
-  Widget _buildSampleCard(Sample sample, int index) {
-    return Card(
-      key: ValueKey(sample.numSample),
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Sample ${sample.numSample} - ${sample.formattedTime}'),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _removeSample(index),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    initialValue: sample.selectedMinutes.toString(),
-                    decoration: const InputDecoration(labelText: 'Minutes'),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    onChanged: (value) {
-                      final minutes = int.tryParse(value) ?? 0;
-                      _updateSample(
-                        index,
-                        sample.copyWith(selectedMinutes: minutes),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: sample.selectedSeconds.toString(),
-                    decoration: const InputDecoration(labelText: 'Seconds'),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(2),
-                    ],
-                    onChanged: (value) {
-                      final seconds = int.tryParse(value) ?? 0;
-                      _updateSample(
-                        index,
-                        sample.copyWith(selectedSeconds: seconds),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-            /*TextFormField(
-              initialValue: sample.y?.toString() ?? '0',
-              decoration: const InputDecoration(labelText: 'Value (Y)'),
-              keyboardType: TextInputType.number,
-              onChanged: (value) {
-                final y = double.tryParse(value) ?? 0.0;
-                _updateSample(index, sample.copyWith(y: y));
-              },
-            ),*/
+  Widget _timeField({
+    required String label,
+    required int    initial,
+    required void Function(int) onChange,
+    int?   limit,
+  }) =>
+      Expanded(
+        child: TextFormField(
+          initialValue: initial.toString(),
+          decoration  : InputDecoration(labelText: label),
+          keyboardType: TextInputType.number,
+          inputFormatters: [
+            FilteringTextInputFormatter.digitsOnly,
+            if (limit != null) LengthLimitingTextInputFormatter(limit),
           ],
+          onChanged: (v) => onChange(int.tryParse(v) ?? 0),
         ),
-      ),
-    );
-  }
+      );
 }

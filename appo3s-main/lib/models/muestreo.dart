@@ -1,158 +1,92 @@
-import 'package:flutter/services.dart';
-import 'package:appo3s/models/sample.dart';
+import 'sample.dart';
 
+/// ─────────────────────────────────────────────────────────────
+///  Colección de `Sample`s + utilidades de tiempo.
+/// ─────────────────────────────────────────────────────────────
 class Muestreo {
-   Duration? maxDuration;
-  int index_actual = 0; // Índice para el número de muestra
-   List<Sample> _samples = [
-    
-  ]; // Lista privada
+  Duration? maxDuration;
+  int index_actual = 0;
+  final List<Sample> _samples;
 
-  // Constructor opcional para inicializar con muestras existentes
-Muestreo({this.maxDuration, List<Sample>? samples})
+  Muestreo({this.maxDuration, List<Sample>? samples})
       : _samples = samples ?? [];
 
-  // Añade estos métodos:
-factory Muestreo.fromJson(Map<String, dynamic> json) {
-    return Muestreo(
-      maxDuration: json['maxDuration'] != null
-          ? Duration(microseconds: json['maxDuration'] as int)
-          : null,
-    ).._samples = (json['samples'] as List?)
-          ?.map((e) => Sample.fromJson(e as Map<String, dynamic>))
-          .toList() ??
-        []
-      ..index_actual = json['index_actual'] as int? ?? 0;
-  }
+  /* ╭───── JSON ─────╮ */
+  factory Muestreo.fromJson(Map<String, dynamic> j) => Muestreo(
+    maxDuration: j['maxDuration'] != null
+        ? Duration(microseconds: j['maxDuration'] as int)
+        : null,
+    samples: (j['samples'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()          // NEW
+        .map((e) => Sample.fromJson(e))
+        .toList(),
+  )
+    ..index_actual = (j['index_actual'] as int?) ?? 0;    // NEW
 
-  Map<String, dynamic> toJson() {
-    return {
-      'maxDuration': maxDuration?.inMicroseconds,
-      'index_actual': index_actual,
-      'samples': _samples.map((sample) => sample.toJson()).toList(),
-    };
-  }
+  Map<String, dynamic> toJson() => {
+    'maxDuration' : maxDuration?.inMicroseconds,
+    'index_actual': index_actual,
+    'samples'     : _samples.map((s) => s.toJson()).toList(),
+  };
 
-  //*************** */
- void inicializo() {
-    _samples = [
-      Sample(numSample: 1, selectedMinutes: 0, selectedSeconds: 0),
-    ];
-  }
+  /* ───── getters estilo lista ──── */
+  int    get count      => _samples.length;
+  bool   get isEmpty    => _samples.isEmpty;
+  bool   get isNotEmpty => _samples.isNotEmpty;
+  Sample get first      => _samples.first;
+  Sample get last       => _samples.last;
+  List<Sample> get samples => List.unmodifiable(_samples);
+  Sample operator [](int i) => _samples[i];
 
-  //*************** */
- void llenarMuestras() {
-    _samples = [
-      Sample(numSample: 1, selectedMinutes: 0, selectedSeconds: 0),
-      Sample(numSample: 2, selectedMinutes: 0, selectedSeconds: 30),
-      Sample(numSample: 3, selectedMinutes: 1, selectedSeconds: 0),
-      Sample(numSample: 4, selectedMinutes: 1, selectedSeconds: 30),
-      Sample(numSample: 5, selectedMinutes: 2, selectedSeconds: 0),
-      Sample(numSample: 6, selectedMinutes: 2, selectedSeconds: 30),
-      Sample(numSample: 7, selectedMinutes: 3, selectedSeconds: 0),
+  int get lastTime => isEmpty ? 0 : last.totalSeconds;
 
-      
-    ];
+  /* ───── edición ──── */
+  void addSample   (Sample s)        => _samples.add(s);
+  void updateSample(int i, Sample s) => _samples[i] = s;
+  void removeSample(int i)           => _samples.removeAt(i);
+  void clearSamples()                => _samples.clear();
 
-    _samples[3].y = -5;
-  }
+  /* ───── orden y renum. ──── */
+  void sortByTime() =>
+      _samples.sort((a, b) => a.totalSeconds.compareTo(b.totalSeconds));
 
-   Muestreo deepCopy() {
-    final nuevo = Muestreo();
-    for (final sample in samples) {
-      nuevo.addSample(sample.copy());
+  void renum() {
+    for (var i = 0; i < _samples.length; i++) {
+      _samples[i] = _samples[i].copyWith(numSample: i + 1);
     }
-    return nuevo;
   }
+
+  /* ───── copias ──── */
+  Muestreo deepCopy() => Muestreo(
+    maxDuration: maxDuration,
+    samples    : _samples.map((s) => s.copy()).toList(),
+  );
 
   void inicializar_con_otro_muestreo(Muestreo otro) {
     clearSamples();
-    for (final sample in otro.samples) {
-      addSample(sample.copy());
-    }
+    _samples.addAll(otro._samples.map((s) => s.copy()));
   }
 
- /*void inicializar_con_otro_muestreo(Muestreo otroMuestreo) {
-    // Inicializa este muestreo con los datos de otro muestreo
-    for (int i = 0; i < otroMuestreo._samples.length; i++) {
-      _samples.add(Sample(
-        numSample: otroMuestreo._samples[i].numSample,
-        selectedMinutes: otroMuestreo._samples[i].selectedMinutes,
-        selectedSeconds: otroMuestreo._samples[i].selectedSeconds,
-        y: otroMuestreo._samples[i].y,
-      )); 
-    }
+  /* ───── helpers demo ──── */
+  Sample getSample(int i) => _samples[i];
 
-
-  }
-*/
-  void actualizarMuestras_index(double y) {
-    // Actualiza las muestras con los valores actuales
-    _samples [index_actual].y = y;
-    index_actual++;
-  }
-
-    void actualizarMuestras_time(int minutes, int seconds, double y) {
-    // Actualiza las muestras con los valores actuales
-  for (int i = 0; i < _samples.length; i++) {
-      if (_samples[i].selectedMinutes == minutes && _samples[i].selectedSeconds == seconds) {
-        _samples [index_actual].y = y;
-        index_actual++;
-        return; // Salir del bucle una vez que se actualiza la muestra
+  void actualizarMuestras_time(int m, int s, double y) {
+    for (final smp in _samples) {
+      if (smp.selectedMinutes == m && smp.selectedSeconds == s) {
+        smp.y = y;
+        break;
       }
-
-    }
-
-  }
-
-  // Getter para acceder a las muestras (solo lectura)
-  List<Sample> get samples => List.unmodifiable(_samples);
-
-  // Añadir una nueva muestra
-  void addSample(Sample sample) {
-    _samples.add(sample);
-  }
-
-  // Modificar una muestra existente
-  void updateSample(int index, Sample newSample) {
-    if (index >= 0 && index < _samples.length) {
-      _samples[index] = newSample;
-    } else {
-      throw RangeError('Índice fuera de rango');
     }
   }
 
-  // Eliminar una muestra
-  void removeSample(int index) {
-    if (index >= 0 && index < _samples.length) {
-      _samples.removeAt(index);
-    } else {
-      throw RangeError('Índice fuera de rango');
-    }
+  void actualizarMuestras_index(double y) {
+    if (_samples.isEmpty) return;
+    _samples[index_actual].y = y;
+    index_actual = (index_actual + 1).clamp(0, _samples.length);
   }
 
-  // Eliminar por muestra (comparando objetos)
-  void removeSampleByObject(Sample sample) {
-    _samples.remove(sample);
-  }
-
-  // Obtener una muestra específica
-  Sample getSample(int index) {
-    if (index >= 0 && index < _samples.length) {
-      return _samples[index];
-    }
-    throw RangeError('Índice fuera de rango');
-  }
-
-  // Limpiar todas las muestras
-  void clearSamples() {
-    _samples.clear();
-  }
-
-  // Número de muestras
-  int get count => _samples.length;
-
-  // Verificar si está vacío
-  bool get isEmpty => _samples.isEmpty;
-  bool get isNotEmpty => _samples.isNotEmpty;
+  Muestreo cloneEmpty() => Muestreo(
+    maxDuration: maxDuration,
+    samples    : _samples.map((s) => s.copyWith(y: 0)).toList(),
+  );
 }
