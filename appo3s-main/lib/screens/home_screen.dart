@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'historial_registros.dart';
 import 'creando_registros.dart';
 
-import '../services/esp32_por_cable.dart';
+import '../services/esp32_por_cable_web.dart'
+    if (dart.library.ffi) '../services/esp32_por_cable_win.dart';
+
 import '../services/esp32_por_wifi.dart';
 import '../services/esp32_manager.dart';
+
+import '../services/server_renamed.dart';
 
 import 'package:http/http.dart' as http;
 
@@ -23,11 +27,16 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isConnected = false;
   late final ESP32WifiService _wifiService;
   late final ConnectionManager _connectionManager;
-
+  bool developer_mode = false; // Variable para modo desarrollador
+  String ipEncontrada='0.0.0.0';
+  bool checked=false;
   @override
 @override
 void initState() {
   super.initState();
+  Mongo mongo=   new Mongo();
+   mongo.iniciar_mongo(); // Conectar a MongoDB al iniciar
+
 
   _wifiService = ESP32WifiService(ipAddress: '0.0.0.0');
   _connectionManager = ConnectionManager(
@@ -37,28 +46,37 @@ void initState() {
 
   // Ejecutar luego del primer frame
   WidgetsBinding.instance.addPostFrameCallback((_) {
-    //_autoBuscarESP32();
+    _autoBuscarESP32();
+    checked= check_mode(_isConnected, developer_mode);
   });
+
 
 
   
 }
 
 
-  Future<bool> _autoBuscarESP32() async {
-
-    bool result = false;
+ Future<bool> _autoBuscarESP32() async {
+  bool result = false;
   try {
-    // Mostrar dialogo de progreso
-    //_mostrarDialogo('Obteniendo IP local...');
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity == ConnectivityResult.none) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      final mensaje = 'No hay conexión WiFi activa';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
+      return false;
+    }
 
     final ipLocal = await _obtenerIpLocal();
     print('IP local obtenida: $ipLocal');
 
     if (!mounted) return false;
     if (ipLocal == null) {
-      Navigator.of(context).pop(); // cerrar diálogo
-      final connectivity = await Connectivity().checkConnectivity();
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       final mensaje = (connectivity == ConnectivityResult.wifi)
           ? 'Conectado a WiFi pero sin IP (¿problema de DHCP?)'
           : 'No hay conexión WiFi activa';
@@ -68,20 +86,23 @@ void initState() {
 
     final subnet = _extraerSubnet(ipLocal);
     if (subnet.isEmpty) {
-      Navigator.of(context).pop();
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('IP inválida detectada: $ipLocal')),
       );
       return false;
     }
 
-    // Actualizar mensaje del diálogo
     _mostrarDialogo('Buscando ESP32 en la red...');
 
     final ipEncontrada = await buscarIpESP32Extendido(subnet);
 
     if (!mounted) return false;
-    Navigator.of(context).pop(); // cerrar diálogo al finalizar búsqueda
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.of(context, rootNavigator: true).pop();
+    }
 
     if (ipEncontrada != null) {
       print('ESP32 encontrado en $ipEncontrada');
@@ -89,7 +110,6 @@ void initState() {
       result = true;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('ESP32 encontrado en $ipEncontrada')),
-        
       );
 
       if (_isSelected) {
@@ -112,22 +132,23 @@ void initState() {
   } catch (e) {
     print('Error en _autoBuscarESP32: $e');
     result = false;
-    if (mounted) {
-      Navigator.of(context).pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al buscar ESP32: $e')),
-      );
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.of(context, rootNavigator: true).pop();
     }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error al buscar ESP32: $e')),
+    );
   }
-
 
   return result;
 }
 
 
+
 Future<String?> _obtenerIpLocal() async {
   try {
     // 1. Verificar si hay internet realmente
+    print ('verificando wifi');
     final tieneInternet = await _verificarConexionReal();
     print('Tiene conexión a internet: $tieneInternet');
     if (!tieneInternet) {
@@ -177,16 +198,26 @@ Future<String?> _obtenerIpLocal() async {
 
 Future<bool> _verificarConexionReal() async {
   try {
-    // Intentamos conectar a un servidor confiable
+    final connectivity = await Connectivity().checkConnectivity();
+    if (connectivity == ConnectivityResult.none) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.of(context, rootNavigator: true).pop();
+      }
+      final mensaje = 'No hay conexión WiFi activa';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(mensaje)));
+      return false;
+    }
+
     final result = await InternetAddress.lookup('google.com').timeout(
       const Duration(seconds: 3),
     );
     return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
   } catch (e) {
-    print('Error al verificar conexión real: $e');
+    print('Error al verificar conexión real');
     return false;
   }
 }
+
 
   String _extraerSubnet(String ip) {
     final parts = ip.split('.');
@@ -254,10 +285,15 @@ Future<void> _handleSwitchChange(bool value) async {
   // Cambiar inmediatamente el estado visual del switch
   setState(() {
     _isSelected = value;
+    check_mode(_isConnected, developer_mode); 
   });
 
   // Mostrar indicador de carga
   final dialogContext = context;
+
+
+
+      
   showDialog(
     context: dialogContext,
     barrierDismissible: false,
@@ -271,16 +307,29 @@ Future<void> _handleSwitchChange(bool value) async {
       ),
     ),
   );
+  
+
 
   bool connectionResult = false;
   
   try {
     if (value) {
       // Modo Wi-Fi - buscar ESP32
-      connectionResult = await _autoBuscarESP32();
+      
+      if (developer_mode==false){
+          connectionResult = await _autoBuscarESP32();
+      }else{
+          connectionResult=true;
+      }
+     // 
     } else {
       // Modo Serial - verificar conexión por cable
-      connectionResult = await _connectionManager.switchConnection(ConnectionType.serial);
+      if (developer_mode==false){
+      connectionResult = await _connectionManager.switchConnection(ConnectionType.serial);}
+      else{
+        connectionResult=true;
+        }
+      //connectionResult=true;
     }
   } catch (e) {
     print('Error al cambiar conexión: $e');
@@ -307,6 +356,19 @@ Future<void> _handleSwitchChange(bool value) async {
       ),
     );
   }
+}
+
+bool check_mode(bool conecte , bool devele) {
+  bool x=false;
+  if (devele) {
+    x = true; // Modo desarrollador, siempre activo
+  } else {
+    x = conecte; // Depende del estado del switch
+  }
+
+  checked = x; // Actualizar la variable global
+
+  return x;
 }
 
 
@@ -351,7 +413,8 @@ Future<void> _handleSwitchChange(bool value) async {
             SizedBox(
               width: 160,
               height: 160,
-              child: ElevatedButton(
+              child:
+               ElevatedButton(
                 style: ElevatedButton.styleFrom(
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12))),
@@ -372,12 +435,23 @@ Future<void> _handleSwitchChange(bool value) async {
             SizedBox(
               width: 160,
               height: 160,
-              child: ElevatedButton(
+              child: 
+              ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12))),
-                onPressed: () =>
-                    Navigator.push(context, MaterialPageRoute(builder: (_) => const CreandoRegistros())),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  // Opcional: Cambiar estilo si está deshabilitado
+                  backgroundColor: checked
+                      ? null 
+                      : Colors.grey[300],
+                ),
+                onPressed: checked
+                    ? () => Navigator.push(
+                        context, 
+                        MaterialPageRoute(builder: (_) => const CreandoRegistros()),
+                      ) 
+                    : null, // Si es false, el botón se deshabilita
                 child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [

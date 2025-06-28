@@ -1,8 +1,9 @@
+// lib/services/connection_manager.dart
 
-import '../services/esp32_por_cable.dart';
-import '../services/esp32_por_wifi.dart';
-import 'package:flutter_libserialport/flutter_libserialport.dart';
-import 'package:flutter/foundation.dart'; // necesario para compute()
+import 'esp32_por_cable_web.dart'
+    if (dart.library.ffi) 'esp32_por_cable_win.dart';
+
+import 'esp32_por_wifi.dart';
 import 'dart:async';
 
 enum ConnectionType { wifi, serial }
@@ -28,7 +29,7 @@ class ConnectionManager {
   }
 
   Future<bool> _connectToSerial() async {
-    final ports = SerialPort.availablePorts;
+    final ports = obtenerPuertosDisponibles();
     for (var port in ports) {
       if (port.contains('COM') || port.contains('ttyUSB')) {
         if (await serialService.conectar(port)) {
@@ -43,17 +44,15 @@ class ConnectionManager {
     if (currentType == ConnectionType.wifi) {
       return await wifiService.obtenerDatos();
     } else {
-      // Para serial, usamos el stream
       final completer = Completer<String>();
       final subscription = serialService.dataStream.listen((data) {
         if (!completer.isCompleted) {
           completer.complete(data.toString());
         }
       });
-      
-      // Enviamos comando para solicitar datos
+
       serialService.enviarComando('GET_DATA');
-      
+
       return completer.future.timeout(
         const Duration(seconds: 2),
         onTimeout: () {
