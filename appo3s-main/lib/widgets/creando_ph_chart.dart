@@ -1,43 +1,46 @@
-// widgets/creando_ph_chart.dart
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+
 import '../models/muestreo.dart';
 import '../models/sample.dart';
 
 class Creando_PhChart extends StatelessWidget {
+  const Creando_PhChart({
+    super.key,
+    required this.muestreo,
+    this.useViewport = false,
+  });
+
   final Muestreo muestreo;
-  const Creando_PhChart({super.key, required this.muestreo});
+  final bool     useViewport;
 
   @override
   Widget build(BuildContext context) {
     const Color emphColor = Color.fromARGB(255, 238, 159, 159);
-    final List<Sample> samples = muestreo.samples;
 
-    /* ────────── SIN DATOS ────────── */
-    if (samples.isEmpty) return _empty(context, emphColor);
+    final List<Sample> data = useViewport
+        ? ((muestreo as dynamic).inView as List<Sample>? ?? muestreo.samples)
+        : muestreo.samples;
 
-    /* ────────── puntos ────────── */
-    // 1. lista original convertida a FlSpot
-    final original = samples
+    if (data.isEmpty) return _empty(context, emphColor);
+
+    final original = data
         .map((s) => FlSpot(
       (s.selectedMinutes * 60 + s.selectedSeconds).toDouble(),
       s.y,
     ))
         .toList();
 
-    // 2. si el primer dato NO está en t=0, añadimos un “punto fantasma”
-    final List<FlSpot> spots;
-    if (original.first.x == 0) {
-      spots = original;
-    } else {
-      spots = [FlSpot(0, original.first.y)]..addAll(original);
-    }
+    final List<FlSpot> spots = original.first.x == 0
+        ? original
+        : [FlSpot(0, original.first.y), ...original];
 
-    /* ────────── stats rápidas ────────── */
-    final ys   = samples.map((e) => e.y).toList();
+    final ys   = data.map((e) => e.y).toList();
     final maxY = ys.reduce((a, b) => a > b ? a : b);
     final minY = ys.reduce((a, b) => a < b ? a : b);
-    final avgY = ys.fold<double>(0, (p, c) => p + c) / ys.length;
+    final avgY = ys.reduce((a, b) => a + b) / ys.length;
+
+    final maxYaxis = maxY < 14 ? 14.0 : (maxY * 1.1).ceilToDouble();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -48,8 +51,6 @@ class Creando_PhChart extends StatelessWidget {
               style: Theme.of(context).textTheme.headlineSmall,
               textAlign: TextAlign.center),
         ),
-
-        /* ────────── GRÁFICA ────────── */
         AspectRatio(
           aspectRatio: 16 / 9,
           child: LineChart(
@@ -57,90 +58,120 @@ class Creando_PhChart extends StatelessWidget {
               minX: 0,
               maxX: spots.last.x,
               minY: 0,
-              maxY: 14,
-
+              maxY: maxYaxis,
               gridData: const FlGridData(
                 show: true,
-                horizontalInterval: 1, // cada 1 pH
+                horizontalInterval: 1,
               ),
-
+              lineTouchData: const LineTouchData(
+                handleBuiltInTouches: true,
+              ),
               lineBarsData: [
                 LineChartBarData(
-                  spots   : spots,
-                  isCurved: true,
-                  barWidth: 2,
-                  color   : Colors.blue,
-                  dotData : const FlDotData(show: true),
-                  belowBarData: BarAreaData(
+                  spots        : spots,
+                  isCurved     : true,
+                  barWidth     : 2,
+                  color        : Colors.blue,
+                  dotData      : const FlDotData(show: true),
+                  belowBarData : BarAreaData(
                     show : true,
                     color: emphColor.withOpacity(.25),
                   ),
                 ),
               ],
-
-              titlesData: FlTitlesData(
-                /* — eje X etiquetado en mm:ss — */
-                bottomTitles: AxisTitles(
-                  axisNameWidget: const Padding(
-                    padding: EdgeInsets.only(right: 4),
-                    child: Text(
-                      'min:seg', // o  'µS/cm'
-                      style:
-                      TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: ((spots.last.x - spots.first.x) / 8)
-                        .clamp(1, double.infinity),
-                    getTitlesWidget: (v, _) {
-                      final m = v ~/ 60;
-                      final s = (v % 60).toInt();
-                      return Text('$m:${s.toString().padLeft(2, '0')}',
-                          style: const TextStyle(fontSize: 10));
-                    },
-                    reservedSize: 32,
-                  ),
-                ),
-                /* — eje Y cada unidad de pH — */
-                leftTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    interval: 1,
-                    getTitlesWidget: (v, _) => Text(
-                      v.toInt().toString(),
-                      style: const TextStyle(fontSize: 10),
-                    ),
-                    reservedSize: 28,
-                  ),
-                ),
-                rightTitles:
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles :
-                const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              ),
-
+              titlesData: _titlesData(spots),
               borderData: FlBorderData(show: true),
             ),
           ),
         ),
-
         const SizedBox(height: 8),
-
-        /* ────────── TARJETAS DE STATS ────────── */
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _statCard(context, 'Máximo', maxY.toStringAsFixed(2)),
-            _statCard(context, 'Mínimo', minY.toStringAsFixed(2)),
-            _statCard(context, 'Promedio', avgY.toStringAsFixed(2)),
-          ],
-        ),
+        _statsRow(context, maxY, minY, avgY),
       ],
     );
   }
 
-  /* ────────── helpers ────────── */
+  /* ─ Helpers ─ */
+
+  FlTitlesData _titlesData(List<FlSpot> spots) => FlTitlesData(
+    bottomTitles: AxisTitles(
+      axisNameWidget: const Padding(
+        padding: EdgeInsets.only(top: 4),
+        child: Text('min:seg',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+      ),
+      sideTitles: SideTitles(
+        showTitles  : true,
+        reservedSize: 32,
+        interval    : ((spots.last.x - spots.first.x) / 8)
+            .clamp(1, double.infinity),
+        getTitlesWidget: (v, _) {
+          final m = v ~/ 60;
+          final s = (v % 60).toInt();
+          return Text('$m:${s.toString().padLeft(2, '0')}',
+              style: const TextStyle(fontSize: 10));
+        },
+      ),
+    ),
+    leftTitles: AxisTitles(
+      axisNameWidget: const Padding(
+        padding: EdgeInsets.only(right: 4),
+        child: Text('pH',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+      ),
+      axisNameSize: 24,
+      sideTitles: SideTitles(
+        showTitles  : true,
+        interval    : 1,
+        reservedSize: 28,
+        getTitlesWidget: (v, _) =>
+            Text(v.toInt().toString(),
+                style: const TextStyle(fontSize: 10)),
+      ),
+    ),
+    rightTitles: const AxisTitles(
+        sideTitles: SideTitles(showTitles: false)),
+    topTitles  : const AxisTitles(
+        sideTitles: SideTitles(showTitles: false)),
+  );
+
+  Widget _statsRow(BuildContext ctx, double maxY, double minY, double avgY) =>
+      Padding(
+        padding: const EdgeInsets.all(16),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _card(ctx, 'Máximo', maxY.toStringAsFixed(2)),
+              const SizedBox(width: 12),
+              _card(ctx, 'Mínimo', minY.toStringAsFixed(2)),
+              const SizedBox(width: 12),
+              _card(ctx, 'Promedio', avgY.toStringAsFixed(2)),
+            ],
+          ),
+        ),
+      );
+
+  Widget _card(BuildContext ctx, String t, String v) => Card(
+    elevation: 2,
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(
+        children: [
+          Text(t,
+              style:
+              Theme.of(ctx).textTheme.labelSmall?.copyWith(
+                color: Colors.grey[600],
+              )),
+          const SizedBox(height: 4),
+          Text(v,
+              style: Theme.of(ctx)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(fontWeight: FontWeight.bold)),
+        ],
+      ),
+    ),
+  );
 
   Widget _empty(BuildContext ctx, Color c) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -159,27 +190,5 @@ class Creando_PhChart extends StatelessWidget {
         ),
       ),
     ],
-  );
-
-  Widget _statCard(BuildContext context, String t, String v) => Card(
-    elevation: 2,
-    child: Padding(
-      padding: const EdgeInsets.all(8),
-      child: Column(
-        children: [
-          Text(t,
-              style: Theme.of(context)
-                  .textTheme
-                  .labelSmall
-                  ?.copyWith(color: Colors.grey[600])),
-          const SizedBox(height: 4),
-          Text(v,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyLarge
-                  ?.copyWith(fontWeight: FontWeight.bold)),
-        ],
-      ),
-    ),
   );
 }

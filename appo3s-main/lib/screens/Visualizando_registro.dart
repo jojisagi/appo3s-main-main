@@ -31,25 +31,22 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
 /* ────────── control animación ────────── */
   Timer? _timer;
-  bool   _running   = false;   // ¿hay animación en curso?
-  bool   _paused    = false;   // ¿está pausada?
-  int    _idx       = 0;       // punto actual 0…N-1
-  late int _total;             // puntos totales
-  int    _interval  = 600;     // ms entre puntos (slider)
+  bool   _running   = false;
+  bool   _paused    = false;
+  int    _idx       = 0;
+  late int _total;
+  int    _interval  = 600;
 
 /* ────────── INIT / DISPOSE ────────── */
   @override
   void initState() {
     super.initState();
-
     _ozOriginal   = widget.record.muestreoOzone.deepCopy();
     _phOriginal   = widget.record.muestreoPh.deepCopy();
     _condOriginal = widget.record.muestreoConductivity.deepCopy();
-
     _oz   = _ozOriginal.deepCopy();
     _ph   = _phOriginal.deepCopy();
     _cond = _condOriginal.deepCopy();
-
     _total = _ozOriginal.count;
   }
 
@@ -80,9 +77,8 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
 /* ────────── play / pausa ────────── */
   void _togglePlayPause() {
-    if (_total == 0) return;             // sin datos
-
-    if (!_running) {                     // ► iniciar
+    if (_total == 0) return;
+    if (!_running) {
       setState(() {
         _running = true;
         _paused  = false;
@@ -92,10 +88,10 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
         _cond = _condOriginal.cloneEmpty();
       });
       _programarTimer();
-    } else if (_paused) {                // ► reanudar
+    } else if (_paused) {
       setState(() => _paused = false);
       _programarTimer();
-    } else {                             // ► pausar
+    } else {
       _timer?.cancel();
       setState(() => _paused = true);
     }
@@ -127,7 +123,17 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
     }
   }
 
-/* ────────── fallback si el muestreo está vacío ────────── */
+/* ────────── chart helpers ────────── */
+  /// Mantiene la altura original; permite arrastrar (pan) en X
+  Widget _chartWithPan(Widget chart) => ClipRect(
+    child: InteractiveViewer(
+      panEnabled   : true,
+      scaleEnabled : false,  // sin zoom
+      constrained  : true,   // respeta ancho y alto dados
+      child: chart,
+    ),
+  );
+
   Widget _safeChart(Widget chart, Muestreo m) {
     if (m.count == 0) {
       return Container(
@@ -155,9 +161,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
     final noData   = _total == 0;
     final icon     = !_running ? Icons.play_arrow : (_paused ? Icons.play_arrow : Icons.pause);
-    final caption  = !_running ? 'Simular'
-        : (_paused ? 'Reanudar'
-        : 'Pausa');
+    final caption  = !_running ? 'Simular' : (_paused ? 'Reanudar' : 'Pausa');
 
     return Scaffold(
       appBar: AppBar(title: const Text('Registro')),
@@ -199,81 +203,71 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
             if (_running) ...[
               const SizedBox(height: 12),
-
-              /// ───── velocidad (lento ←→ rápido) ─────
               Slider(
-                // el valor que mueve el usuario va de 0 (lento) → 1900 (rápido)
-                min:    0,
+                min: 0,
                 max: 1900,
                 divisions: 19,
-                // convertimos el valor real [_interval] (100-2000 ms)
-                // a “posición” de 0-1900 => pos = 2000 - _interval
                 value: (2000 - _interval).toDouble(),
-                label: '${_interval} ms',               // texto emergente
+                label: '${_interval} ms',
                 onChanged: (v) {
-                  // v es 0-1900 → intervalo = 2000 - v
                   setState(() => _interval = 2000 - v.round());
                   if (_running && !_paused) _programarTimer();
                 },
               ),
-
               const SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  // ◀◀  Más lento
                   IconButton(
                     icon: const Icon(Icons.fast_rewind_rounded, size: 32),
                     tooltip: 'Más lento',
                     onPressed: () {
-                      setState(() {
-                        _interval = (_interval + 200).clamp(100, 2000);
-                      });
+                      setState(() => _interval = (_interval + 200).clamp(100, 2000));
                       if (_running && !_paused) _programarTimer();
                     },
                   ),
                   const SizedBox(width: 24),
-                  //   ▶▶  Más rápido
                   IconButton(
                     icon: const Icon(Icons.fast_forward_rounded, size: 32),
                     tooltip: 'Más rápido',
                     onPressed: () {
-                      setState(() {
-                        _interval = (_interval - 200).clamp(100, 2000);
-                      });
+                      setState(() => _interval = (_interval - 200).clamp(100, 2000));
                       if (_running && !_paused) _programarTimer();
                     },
                   ),
                 ],
               ),
-
             ],
 
             const SizedBox(height: 24),
 
-            /* ─── Gráfica Ozono ─── */
-            _safeChart(Creando_OzoneChart(muestreo: _oz), _oz),
+            /* ─── Ozono ─── */
+            _chartWithPan(_safeChart(Creando_OzoneChart(muestreo: _oz), _oz)),
 
             const SizedBox(height: 24),
 
-            /* ─── Conductividad + pH (responsive) ─── */
+            /* ─── Conductividad + pH ─── */
             LayoutBuilder(
               builder: (ctx, cons) {
                 final wide = cons.maxWidth >= 680;
                 final children = [
                   Expanded(
-                    child: _safeChart(
-                        Creando_ConductivityChart(muestreo: _cond), _cond),
+                    child: _chartWithPan(
+                      _safeChart(Creando_ConductivityChart(muestreo: _cond), _cond),
+                    ),
                   ),
-                  if (wide) const SizedBox(width: 20) else const SizedBox(height: 20),
+                  if (wide)
+                    const SizedBox(width: 20)
+                  else
+                    const SizedBox(height: 20),
                   Expanded(
-                    child: _safeChart(
-                        Creando_PhChart(muestreo: _ph), _ph),
+                    child: _chartWithPan(
+                      _safeChart(Creando_PhChart(muestreo: _ph), _ph),
+                    ),
                   ),
                 ];
                 return wide
-                    ? Row(crossAxisAlignment: CrossAxisAlignment.start,
-                    children: children)
+                    ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: children)
                     : Column(children: children);
               },
             ),
