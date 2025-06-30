@@ -27,7 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isConnected = false;
   late final ESP32WifiService _wifiService;
   late final ConnectionManager _connectionManager;
-  bool developer_mode = false; // Variable para modo desarrollador
+  bool developer_mode = true; // Variable para modo desarrollador
   String ipEncontrada='0.0.0.0';
   bool checked=false;
   @override
@@ -36,6 +36,7 @@ void initState() {
   super.initState();
   Mongo mongo=   new Mongo();
    mongo.iniciar_mongo(); // Conectar a MongoDB al iniciar
+
 
 
   _wifiService = ESP32WifiService(ipAddress: '0.0.0.0');

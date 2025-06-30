@@ -22,32 +22,35 @@ class VisualizandoRegistros extends StatefulWidget {
 }
 
 class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
-  /* ───── buffers ───── */
-  late Muestreo _ozOriginal, _phOriginal, _condOriginal; // datos reales guardados
-  late Muestreo _oz, _ph, _cond;                         // lo que se pinta/ani­ma
+/* ────────── layout ────────── */
+  static const double _chartH = 260;
 
-  /* ───── control animación ───── */
+/* ────────── buffers ────────── */
+  late Muestreo _ozOriginal, _phOriginal, _condOriginal;
+  late Muestreo _oz, _ph, _cond;
+
+/* ────────── control animación ────────── */
   Timer? _timer;
-  bool   _simulating = false;
-  int    _idx        = 0;      // punto actual 0…N-1
+  bool   _running   = false;   // ¿hay animación en curso?
+  bool   _paused    = false;   // ¿está pausada?
+  int    _idx       = 0;       // punto actual 0…N-1
   late int _total;             // puntos totales
+  int    _interval  = 600;     // ms entre puntos (slider)
 
-  /* ───── INIT ───── */
+/* ────────── INIT / DISPOSE ────────── */
   @override
   void initState() {
     super.initState();
 
-    // 1️⃣  Clones con los datos reales del registro
     _ozOriginal   = widget.record.muestreoOzone.deepCopy();
     _phOriginal   = widget.record.muestreoPh.deepCopy();
     _condOriginal = widget.record.muestreoConductivity.deepCopy();
 
-    // 2️⃣  MOSTRARLOS inmediatamente (no en 0)
     _oz   = _ozOriginal.deepCopy();
     _ph   = _phOriginal.deepCopy();
     _cond = _condOriginal.deepCopy();
 
-    _total = _ozOriginal.count;          // todas las series comparten la pauta
+    _total = _ozOriginal.count;
   }
 
   @override
@@ -56,71 +59,105 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
     super.dispose();
   }
 
-  /* ───── helpers ───── */
+/* ────────── helpers ────────── */
   void _copiarPunto(Muestreo src, Muestreo dst, int i) {
     if (i < src.count) dst.updateSample(i, src[i].copy());
   }
 
-  /* ───── animación ───── */
-  Future<void> _startSim() async {
-    if (_simulating || _total == 0) return;
-
-    setState(() {
-      _simulating = true;
-      _idx        = 0;
-      // ⇢ vaciamos para reconstruir desde cero
-      _oz   = _ozOriginal.cloneEmpty();
-      _ph   = _phOriginal.cloneEmpty();
-      _cond = _condOriginal.cloneEmpty();
-    });
-
-    _timer = Timer.periodic(const Duration(milliseconds: 600), (t) async {
+  void _programarTimer() {
+    _timer?.cancel();
+    _timer = Timer.periodic(Duration(milliseconds: _interval), (t) async {
       _copiarPunto(_ozOriginal  , _oz  , _idx);
       _copiarPunto(_phOriginal  , _ph  , _idx);
       _copiarPunto(_condOriginal, _cond, _idx);
-
       setState(() {});
-      _idx++;
-
-      if (_idx >= _total) {
+      if (++_idx >= _total) {
         t.cancel();
-        await _saveAndFinish();
+        await _finishSim();
       }
     });
   }
 
-  Future<void> _saveAndFinish() async {
-    // una vez completada la animación, consideramos los buffers “reales”
+/* ────────── play / pausa ────────── */
+  void _togglePlayPause() {
+    if (_total == 0) return;             // sin datos
+
+    if (!_running) {                     // ► iniciar
+      setState(() {
+        _running = true;
+        _paused  = false;
+        _idx     = 0;
+        _oz   = _ozOriginal.cloneEmpty();
+        _ph   = _phOriginal.cloneEmpty();
+        _cond = _condOriginal.cloneEmpty();
+      });
+      _programarTimer();
+    } else if (_paused) {                // ► reanudar
+      setState(() => _paused = false);
+      _programarTimer();
+    } else {                             // ► pausar
+      _timer?.cancel();
+      setState(() => _paused = true);
+    }
+  }
+
+/* ────────── fin animación ────────── */
+  Future<void> _finishSim() async {
     _ozOriginal   = _oz.deepCopy();
     _phOriginal   = _ph.deepCopy();
     _condOriginal = _cond.deepCopy();
 
-    final actualizado = widget.record.copyWith(
-      fechaHora            : DateTime.now(),
-      muestreoOzone        : _ozOriginal,
-      muestreoPh           : _phOriginal,
-      muestreoConductivity : _condOriginal,
+    await context.read<RecordService>().saveRecord(
+      widget.record.copyWith(
+        fechaHora            : DateTime.now(),
+        muestreoOzone        : _ozOriginal,
+        muestreoPh           : _phOriginal,
+        muestreoConductivity : _condOriginal,
+      ),
     );
-    await context.read<RecordService>().saveRecord(actualizado);
 
-    setState(() => _simulating = false);
+    setState(() {
+      _running = false;
+      _paused  = false;
+    });
 
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Simulación guardada')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Simulación guardada')));
     }
   }
 
-  /* ───── UI ───── */
+/* ────────── fallback si el muestreo está vacío ────────── */
+  Widget _safeChart(Widget chart, Muestreo m) {
+    if (m.count == 0) {
+      return Container(
+        alignment: Alignment.center,
+        height   : _chartH,
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Text('Sin datos'),
+      );
+    }
+    return chart;
+  }
+
+/* ────────── UI ────────── */
   @override
   Widget build(BuildContext context) {
     final btnStyle = ElevatedButton.styleFrom(
       backgroundColor: Theme.of(context).colorScheme.primary,
       foregroundColor: Colors.white,
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
     );
+
+    final noData   = _total == 0;
+    final icon     = !_running ? Icons.play_arrow : (_paused ? Icons.play_arrow : Icons.pause);
+    final caption  = !_running ? 'Simular'
+        : (_paused ? 'Reanudar'
+        : 'Pausa');
 
     return Scaffold(
       appBar: AppBar(title: const Text('Registro')),
@@ -129,6 +166,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            /* ─── cabecera ─── */
             record_widget_simple(
               contaminante : Text(widget.record.contaminante),
               concentracion: Text('${widget.record.concentracion} ppm'),
@@ -137,54 +175,134 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
             ),
             const SizedBox(height: 20),
 
+            /* ─── botón play/pause ─── */
             Center(
               child: ElevatedButton.icon(
-                icon : const Icon(Icons.play_arrow),
-                label: const Text('Simular'),
-                style: btnStyle,
-                onPressed: _simulating ? null : _startSim,
+                icon : Icon(icon),
+                label: Text(caption),
+                style: btnStyle.copyWith(
+                  backgroundColor: noData
+                      ? MaterialStateProperty.all(Colors.grey)
+                      : btnStyle.backgroundColor,
+                ),
+                onPressed: noData ? null : _togglePlayPause,
               ),
             ),
-            if (_simulating) ...[
+
+            if (_running && !_paused) ...[
               const SizedBox(height: 12),
               LinearProgressIndicator(
-                value: _total == 0 ? 0 : _idx / _total,
+                value: _idx / (_total == 0 ? 1 : _total),
                 backgroundColor: Colors.grey.shade300,
               ),
             ],
 
+            if (_running) ...[
+              const SizedBox(height: 12),
+
+              /// ───── velocidad (lento ←→ rápido) ─────
+              Slider(
+                // el valor que mueve el usuario va de 0 (lento) → 1900 (rápido)
+                min:    0,
+                max: 1900,
+                divisions: 19,
+                // convertimos el valor real [_interval] (100-2000 ms)
+                // a “posición” de 0-1900 => pos = 2000 - _interval
+                value: (2000 - _interval).toDouble(),
+                label: '${_interval} ms',               // texto emergente
+                onChanged: (v) {
+                  // v es 0-1900 → intervalo = 2000 - v
+                  setState(() => _interval = 2000 - v.round());
+                  if (_running && !_paused) _programarTimer();
+                },
+              ),
+
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // ◀◀  Más lento
+                  IconButton(
+                    icon: const Icon(Icons.fast_rewind_rounded, size: 32),
+                    tooltip: 'Más lento',
+                    onPressed: () {
+                      setState(() {
+                        _interval = (_interval + 200).clamp(100, 2000);
+                      });
+                      if (_running && !_paused) _programarTimer();
+                    },
+                  ),
+                  const SizedBox(width: 24),
+                  //   ▶▶  Más rápido
+                  IconButton(
+                    icon: const Icon(Icons.fast_forward_rounded, size: 32),
+                    tooltip: 'Más rápido',
+                    onPressed: () {
+                      setState(() {
+                        _interval = (_interval - 200).clamp(100, 2000);
+                      });
+                      if (_running && !_paused) _programarTimer();
+                    },
+                  ),
+                ],
+              ),
+
+            ],
+
             const SizedBox(height: 24),
-            Creando_OzoneChart(muestreo: _oz),
+
+            /* ─── Gráfica Ozono ─── */
+            _safeChart(Creando_OzoneChart(muestreo: _oz), _oz),
+
             const SizedBox(height: 24),
-            Row(
-              children: [
-                const SizedBox(width: 20),
-                Expanded(child: Creando_ConductivityChart(muestreo: _cond)),
-                const SizedBox(width: 20),
-                Expanded(child: Creando_PhChart(muestreo: _ph)),
-                const SizedBox(width: 20),
-              ],
+
+            /* ─── Conductividad + pH (responsive) ─── */
+            LayoutBuilder(
+              builder: (ctx, cons) {
+                final wide = cons.maxWidth >= 680;
+                final children = [
+                  Expanded(
+                    child: _safeChart(
+                        Creando_ConductivityChart(muestreo: _cond), _cond),
+                  ),
+                  if (wide) const SizedBox(width: 20) else const SizedBox(height: 20),
+                  Expanded(
+                    child: _safeChart(
+                        Creando_PhChart(muestreo: _ph), _ph),
+                  ),
+                ];
+                return wide
+                    ? Row(crossAxisAlignment: CrossAxisAlignment.start,
+                    children: children)
+                    : Column(children: children);
+              },
             ),
 
             const SizedBox(height: 32),
+
+            /* ─── botones Guardar ─── */
             Center(
               child: Wrap(
                 spacing: 20,
                 children: [
                   ElevatedButton(
                     style: btnStyle,
-                    onPressed: () => saveToTxt(
+                    onPressed: noData
+                        ? null
+                        : () => saveToTxt(
                       context,
-                      widget.record.contaminante,      // String
-                      widget.record.concentracion,     // double
-                      widget.record.fechaHora,         // DateTime
+                      widget.record.contaminante,
+                      widget.record.concentracion,
+                      widget.record.fechaHora,
                       _ozOriginal, _phOriginal, _condOriginal,
                     ),
                     child: const Text('Guardar txt'),
                   ),
                   ElevatedButton(
                     style: btnStyle,
-                    onPressed: () => saveToCsv(
+                    onPressed: noData
+                        ? null
+                        : () => saveToCsv(
                       context,
                       widget.record.contaminante,
                       widget.record.concentracion,
