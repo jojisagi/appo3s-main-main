@@ -8,6 +8,7 @@ class ESP32WifiService {
   ESP32WifiService({required this.ipAddress, this.port = 80});
 
   Future<bool> verificarConexion() async {
+    print("Probando conexion directo");
     try {
       final connectivityResult = await Connectivity().checkConnectivity();
       if (connectivityResult != ConnectivityResult.wifi) return false;
@@ -16,9 +17,13 @@ class ESP32WifiService {
         Uri.parse('http://$ipAddress:$port/status'),
       ).timeout(const Duration(seconds: 2));
 
+
+      
       return response.statusCode == 200;
     } catch (e) {
+      
       return false;
+     
     }
   }
 

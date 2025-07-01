@@ -24,6 +24,7 @@ dependencies:
   shelf: ^1.4.2
   mongo_dart: ^0.10.5
   shelf_router: ^1.1.4
+  multicast_dns: ^0.3.3
 
 dev_dependencies:
   flutter_test:
