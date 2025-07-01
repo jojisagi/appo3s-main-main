@@ -28,7 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isConnected = false;
   late final ESP32WifiService _wifiService;
   late final ConnectionManager _connectionManager;
-  bool developer_mode = true; // Variable para modo desarrollador
+  bool developer_mode = false; // Variable para modo desarrollador
   String ipEncontrada='0.0.0.0';
   String ipActual_ESP32='0.0.0.0';
   bool checked=false;
@@ -136,7 +136,9 @@ class _HomeScreenState extends State<HomeScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No hay conexión WiFi activa')),
+            
           );
+          _isConnected=false;
         }
         return false;
       }
@@ -151,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (ipBroadcast != null) {
         print('ESP32 encontrado con broadcast en $ipBroadcast');
+        _isConnected = true;
         _wifiService.ipAddress = ipBroadcast;
         result = true;
         if (mounted) {
@@ -208,6 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('No se encontró el ESP32 en la red.')),
+              
             );
           }
           result = false;
@@ -217,10 +221,11 @@ class _HomeScreenState extends State<HomeScreen> {
       if (_isSelected && result) {
         final ok = await _connectionManager.switchConnection(ConnectionType.wifi);
         if (mounted) {
-          setState(() => _isConnected = ok);
+          
+          setState(() => _isConnected = true);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(ok
+              content: Text(_isConnected
                   ? 'Conexión Wi-Fi con ESP32 establecida'
                   : 'Fallo al conectar por Wi-Fi'),
             ),
@@ -343,14 +348,17 @@ class _HomeScreenState extends State<HomeScreen> {
         if (!developer_mode) {
           _mostrarDialogo('Cambiando conexión a Serial...');
           connectionResult = await _connectionManager.switchConnection(ConnectionType.serial);
+          _isConnected=connectionResult;
           if (_dialogoAbierto) _cerrarDialogo();
         } else {
           connectionResult = true;
+          _isConnected=connectionResult;
         }
       }
     } catch (e) {
       print('Error al cambiar conexión: $e');
       connectionResult = false;
+      _isConnected=false;
     }
 
     if (mounted) {
@@ -358,6 +366,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       setState(() {
         _isConnected = connectionResult;
+        _isConnected=_connectionManager.serialService.isConnected;
       });
 
       ScaffoldMessenger.of(dialogContext).showSnackBar(
@@ -373,19 +382,24 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  bool check_mode(bool conecte , bool devele) {
+bool check_mode(bool conecte , bool devele) {
     bool x = false;
     if (devele) {
       x = true; // Modo desarrollador, siempre activo
     } else {
       x = conecte; // Depende del estado del switch
     }
-    checked = x;
+    setState(() {
+      checked = x;
+      
+    });
     return x;
   }
 
+
   @override
   Widget build(BuildContext context) {
+    
     return Scaffold(
       appBar: AppBar(
         title: const Text('Menú principal'),
