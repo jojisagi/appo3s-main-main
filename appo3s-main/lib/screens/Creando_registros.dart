@@ -14,16 +14,28 @@ import '../widgets/creando_ph_chart.dart';
 import '../widgets/editing_samples.dart';
 import '../widgets/record_form.dart';
 import '../widgets/timer_widget.dart';
-class CreandoRegistros extends StatefulWidget {
-  /// Si viene **null** → modo “nuevo registro”.
-  /// Si viene un registro → modo “edición”.
-  final Record? original;
 
-  const CreandoRegistros({super.key, this.original});
+import '../services/esp32_por_cable_web.dart'
+    if (dart.library.ffi) '../services/esp32_por_cable_win.dart';
+
+import '../services/esp32_por_wifi.dart';
+import '../services/esp32_manager.dart';
+
+class CreandoRegistros extends StatefulWidget {
+  final Record? original;
+  final ConnectionManager connectionManager;
+
+  const CreandoRegistros({
+    super.key,
+    this.original,
+    required this.connectionManager,
+  });
 
   @override
   State<CreandoRegistros> createState() => _CreandoRegistrosState();
 }
+
+
 
 class _CreandoRegistrosState extends State<CreandoRegistros> {
 /* ───────────────────────── 1. ESTADO PRINCIPAL ───────────────────────── */
@@ -133,10 +145,30 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     final m   = smp.selectedMinutes;
     final sec = smp.selectedSeconds;
 
-    _ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble()*100);            // 0-1 ppm
-    _ph          .actualizarMuestras_time(m, sec, 1 + _rnd.nextDouble() * 13);   // 1-14
-    _conductivity.actualizarMuestras_time(m, sec, _rnd.nextDouble() * 2000);     // 0-2000 µS
+    //_ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble()*100);            // 0-1 ppm
+    //_ph          .actualizarMuestras_time(m, sec, 1 + _rnd.nextDouble() * 13);   // 1-14
+    //_conductivity.actualizarMuestras_time(m, sec, _rnd.nextDouble() * 2000);     // 0-2000 µS
 
+    final datagot = widget.connectionManager.getData();
+    datagot.then((data) {
+      // Actualiza los valores de los muestreos con los datos obtenidos
+      _ozone       .actualizarMuestras_time(m, sec, data['ozone'] ?? 0.0);
+      _ph          .actualizarMuestras_time(m, sec, data['ph'] ?? 0.0);
+      _conductivity.actualizarMuestras_time(m, sec, data['conductivity'] ?? 0.0);
+
+      // Actualiza el estado del widget
+      if (mounted) setState(() {});
+    }).catchError((error) {
+      print('Error al obtener datos: $error');
+    });
+
+
+    /*
+     
+    */
+
+
+      
     _timePattern.index_actual++;
     setState(() {}); // refresco inmediato
   }

@@ -462,7 +462,7 @@ bool check_mode(bool conecte , bool devele) {
                   backgroundColor: checked ? null : Colors.grey[300],
                 ),
                 onPressed: checked
-                    ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CreandoRegistros()))
+                    ? () => Navigator.push(context, MaterialPageRoute(builder: (_) =>  CreandoRegistros(connectionManager:_connectionManager)))
                     : null,
                 child: const Column(
                   mainAxisAlignment: MainAxisAlignment.center,

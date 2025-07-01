@@ -1,4 +1,5 @@
 // lib/services/connection_manager.dart
+import 'dart:convert';
 
 import 'esp32_por_cable_web.dart'
     if (dart.library.ffi) 'esp32_por_cable_win.dart';
@@ -40,26 +41,32 @@ class ConnectionManager {
     return false;
   }
 
-  Future<String> getData() async {
-    if (currentType == ConnectionType.wifi) {
-      return await wifiService.obtenerDatos();
-    } else {
-      final completer = Completer<String>();
-      final subscription = serialService.dataStream.listen((data) {
-        if (!completer.isCompleted) {
-          completer.complete(data.toString());
-        }
-      });
+Future<Map<String, dynamic>> getData() async {
+  if (currentType == ConnectionType.wifi) {
+    return await wifiService.obtenerDatos();
+  } else {
+    final completer = Completer<String>();
+    final subscription = serialService.dataStream.listen((data) {
+      if (!completer.isCompleted) {
+        completer.complete(data.toString());
+      }
+    });
 
-      serialService.enviarComando('GET_DATA');
+    serialService.enviarComando('GET_DATA');
 
-      return completer.future.timeout(
-        const Duration(seconds: 2),
-        onTimeout: () {
-          subscription.cancel();
-          throw TimeoutException('No se recibieron datos del ESP32');
-        },
-      );
-    }
+    final resultado = await completer.future.timeout(
+      const Duration(seconds: 2),
+      onTimeout: () {
+        subscription.cancel();
+        throw TimeoutException('No se recibieron datos del ESP32');
+      },
+    );
+
+    subscription.cancel();
+
+    return jsonDecode(resultado);
   }
+}
+
+
 }
