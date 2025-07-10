@@ -1,18 +1,21 @@
-// lib/services/esp32_por_cable_win.dart
-
 import 'dart:convert';
 import 'dart:async';
 import 'package:flutter_libserialport/flutter_libserialport.dart';
 import 'package:flutter/foundation.dart';
 
+
 class ESP32SerialService {
   SerialPort? _port;
   SerialPortReader? _reader;
-  final StreamController<double> _dataController = StreamController.broadcast();
+  StreamSubscription<List<int>>? _serialSubscription;
   bool _connected = false;
 
-  Stream<double> get dataStream => _dataController.stream;
+  final StreamController<String> _dataController = StreamController.broadcast();
+  Stream<String> get dataStream => _dataController.stream;
   bool get isConnected => _connected;
+
+  Completer<bool>? _statusCompleter;
+  Completer<List<double>>? _dataCompleter;
 
   Future<bool> conectar(String portName) async {
     print('[ESP32SerialService] Iniciando conexión al puerto: $portName');
@@ -41,48 +44,57 @@ class ESP32SerialService {
       print('[ESP32SerialService] Puerto $portName abierto y configurado.');
 
       _reader = SerialPortReader(_port!);
+      _serialSubscription = _reader!.stream.listen(_onSerialData);
 
-      final completer = Completer<bool>();
-      late StreamSubscription<List<int>> subscription;
+      _statusCompleter = Completer<bool>();
+      await enviarComando('STATUS');
 
-      subscription = _reader!.stream.listen((data) {
-        try {
-          final strData = utf8.decode(data).trim();
-          print('[ESP32SerialService] Datos recibidos: "$strData"');
-          final value = double.parse(strData);
-          _dataController.add(value);
-          _connected = true;
-          if (!completer.isCompleted) completer.complete(true);
-          subscription.cancel();
-        } catch (e) {
-          print('[ESP32SerialService] Error al procesar datos: $e');
-        }
-      }, onError: (error) {
-        print('[ESP32SerialService] Error en stream: $error');
-      }, onDone: () {
-        print('[ESP32SerialService] Stream cerrado.');
-      });
-
-      final result = await completer.future.timeout(
+      final statusResult = await _statusCompleter!.future.timeout(
         const Duration(seconds: 2),
         onTimeout: () {
-          print('[ESP32SerialService] Timeout esperando datos en puerto $portName.');
-          subscription.cancel();
-          desconectar();
+          print('[ESP32SerialService] Timeout esperando respuesta STATUS');
+          _statusCompleter = null;
           return false;
         },
       );
 
-      if (result) {
-        print('[ESP32SerialService] Conexión establecida con éxito en $portName.');
+      if (!statusResult) {
+        desconectar();
+        return false;
       }
-      return result;
-    } catch (e, st) {
+
+      _connected = true;
+      print('[ESP32SerialService] STATUS OK recibido');
+      return true;
+
+    } catch (e) {
       print('[ESP32SerialService] Error durante la conexión: $e');
-      print(st);
       desconectar();
       return false;
     }
+  }
+
+  void _onSerialData(List<int> data) {
+    final strData = utf8.decode(data).trim();
+    print('[ESP32SerialService] Datos recibidos: "$strData"');
+
+    if (_statusCompleter != null && strData == 'OK') {
+      _statusCompleter!.complete(true);
+      _statusCompleter = null;
+      return;
+    }
+
+    if (_dataCompleter != null && strData.contains(',')) {
+      final cleanData = strData.endsWith(',') ? strData.substring(0, strData.length - 1) : strData;
+      final values = cleanData.split(',').map((v) => double.tryParse(v) ?? 0.0).toList();
+      if (values.length == 4) {
+        _dataCompleter!.complete(values);
+        _dataCompleter = null;
+        return;
+      }
+    }
+
+    _dataController.add(strData);
   }
 
   Future<void> enviarComando(String comando) async {
@@ -91,11 +103,67 @@ class ESP32SerialService {
       return;
     }
     print('[ESP32SerialService] Enviando comando: $comando');
-    _port!.write(utf8.encode('$comando\n'));
+    _port!.write(utf8.encode('$comando\r\n'));
+  }
+
+  Future<Map<String, double?>> getData() async {
+    if (_port == null || !_port!.isOpen) {
+      print('[ESP32SerialService] No se puede obtener datos, puerto no abierto.');
+      return {
+        "Temperatura": null,
+        "pH": null,
+        "Conductividad": null,
+        "Ozono": null,
+      };
+    }
+
+    _dataCompleter = Completer<List<double>>();
+    await enviarComando('GET_DATA');
+
+    try {
+      final values = await _dataCompleter!.future.timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          print('[ESP32SerialService] Timeout esperando datos');
+          _dataCompleter = null;
+          return <double>[];
+
+              
+
+        },
+      );
+
+      if (values == null || values.length != 4) {
+        return {
+          "Temperatura": null,
+          "pH": null,
+          "Conductividad": null,
+          "Ozono": null,
+        };
+      }
+
+      return {
+        "Temperatura": values[0],
+        "pH": values[1],
+        "Conductividad": values[2],
+        "Ozono": values[3],
+      };
+    } catch (e) {
+      print('[ESP32SerialService] Error al obtener datos: $e');
+      _dataCompleter = null;
+      return {
+        "Temperatura": null,
+        "pH": null,
+        "Conductividad": null,
+        "Ozono": null,
+      };
+    }
   }
 
   void desconectar() {
     print('[ESP32SerialService] Desconectando puerto.');
+    _serialSubscription?.cancel();
+    _serialSubscription = null;
     _reader?.close();
     _port?.close();
     _connected = false;
@@ -103,8 +171,8 @@ class ESP32SerialService {
 
   void dispose() {
     print('[ESP32SerialService] Dispose llamado.');
-    desconectar();
     _dataController.close();
+    desconectar();
   }
 
   static bool testSerialPort(String portName) {

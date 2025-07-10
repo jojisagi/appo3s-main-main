@@ -7,10 +7,14 @@ class ESP32SerialService {
   bool get isConnected => false;
 
   Future<bool> conectar(String portName) async => false;
+    Future<Map<String, double>?> getData() async {return {};}
   Future<void> enviarComando(String comando) async {}
   void desconectar() {}
   void dispose() {}
+  
+  Future<bool> autoConectar() async {return false;}
+  /// en web, no hay puertos reales
+
 }
 
-/// en web, no hay puertos reales
 List<String> obtenerPuertosDisponibles() => [];

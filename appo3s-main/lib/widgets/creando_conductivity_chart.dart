@@ -180,7 +180,7 @@ class Creando_ConductivityChart extends StatelessWidget {
             textAlign: TextAlign.center),
       ),
       AspectRatio(
-        aspectRatio: 16 / 9,
+        aspectRatio: 15.8 / 9,
         child: Container(
           color: c,
           child: const Center(child: Text('Sin datos aún')),

@@ -21,6 +21,9 @@ import '../services/esp32_por_cable_web.dart'
 import '../services/esp32_por_wifi.dart';
 import '../services/esp32_manager.dart';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
+import '../services/esp32_wifi_dns.dart';
+
 class CreandoRegistros extends StatefulWidget {
   final Record? original;
   final ConnectionManager connectionManager;
@@ -114,64 +117,136 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     });
   }
 
-  void _injectMockValuesIfNeeded() {
-    /* ─── Fin de la pauta ─── */
-    if (_timePattern.index_actual >= _timePattern.count) {
-      _ticker?.cancel();
-      _started     = false;
-      _formEnabled = true;
+ Future<void> _injectMockValuesIfNeeded() async {
+  if (_timePattern.index_actual >= _timePattern.count) {
+    _ticker?.cancel();
+    _started     = false;
+    _formEnabled = true;
 
-      // Clona resultados en el objeto principal
-      _record = _record.copyWith(
-        muestreoOzone        : _ozone.deepCopy(),
-        muestreoPh           : _ph.deepCopy(),
-        muestreoConductivity : _conductivity.deepCopy(),
-        fechaHora            : DateTime.now(),
-      );
+    _record = _record.copyWith(
+      muestreoOzone        : _ozone.deepCopy(),
+      muestreoPh           : _ph.deepCopy(),
+      muestreoConductivity : _conductivity.deepCopy(),
+      fechaHora            : DateTime.now(),
+    );
 
-      // ⭐ Sólo se guarda automáticamente si veníamos **editando** uno existente.
-      if (widget.original != null) {
-        context.read<RecordService>().saveRecord(_record);
-      }
-
-      setState(() {});
-      return;
+    if (widget.original != null) {
+      context.read<RecordService>().saveRecord(_record);
     }
 
-    /* ─── Punto alcanzado ─── */
-    final smp = _timePattern[_timePattern.index_actual];
-    if (_elapsed.inSeconds < smp.totalSeconds) return;
-
-    final m   = smp.selectedMinutes;
-    final sec = smp.selectedSeconds;
-
-    //_ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble()*100);            // 0-1 ppm
-    //_ph          .actualizarMuestras_time(m, sec, 1 + _rnd.nextDouble() * 13);   // 1-14
-    //_conductivity.actualizarMuestras_time(m, sec, _rnd.nextDouble() * 2000);     // 0-2000 µS
-
-    final datagot = widget.connectionManager.getData();
-    datagot.then((data) {
-      // Actualiza los valores de los muestreos con los datos obtenidos
-      _ozone       .actualizarMuestras_time(m, sec, data['ozone'] ?? 0.0);
-      _ph          .actualizarMuestras_time(m, sec, data['ph'] ?? 0.0);
-      _conductivity.actualizarMuestras_time(m, sec, data['conductivity'] ?? 0.0);
-
-      // Actualiza el estado del widget
-      if (mounted) setState(() {});
-    }).catchError((error) {
-      print('Error al obtener datos: $error');
-    });
-
-
-    /*
-     
-    */
-
-
-      
-    _timePattern.index_actual++;
-    setState(() {}); // refresco inmediato
+    setState(() {});
+    return;
   }
+
+  final smp = _timePattern[_timePattern.index_actual];
+  if (_elapsed.inSeconds < smp.totalSeconds) return;
+
+  // 🛑 Pausa el timer mientras intenta leer los datos
+  _ticker?.cancel();
+
+  final m = smp.selectedMinutes;
+  final sec = smp.selectedSeconds;
+
+  while (true) {
+    try {
+      print('⏱️ Intentando inyectar datos en $m:$sec...');
+      final data = await _datazo();
+
+      // Si hay al menos un valor válido, considera que fue exitoso
+      final bool valid = data.isNotEmpty &&
+          (data['Ozono'] != null || data['pH'] != null || data['Conductividad'] != null);
+
+      if (valid) {
+        _ozone       .actualizarMuestras_time(m, sec, data['Ozono'] ?? 0.0);
+        _ph          .actualizarMuestras_time(m, sec, data['pH'] ?? 0.0);
+        _conductivity.actualizarMuestras_time(m, sec, data['Conductividad'] ?? 0.0);
+
+        _timePattern.index_actual++;
+        break; // ✅ Sal del while
+      } else {
+        print('❌ Datos inválidos, reintentando en 1 segundo...');
+      }
+    } catch (e) {
+      print('❌ Error al obtener datos: $e');
+    }
+
+    // Esperar 1 segundo antes de reintentar
+    await Future.delayed(const Duration(seconds: 1));
+  }
+
+  // ▶️ Reanudar el timer
+  _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+    _elapsed += const Duration(seconds: 1);
+    _injectMockValuesIfNeeded();
+    if (mounted) setState(() {});
+  });
+
+  if (mounted) setState(() {});
+}
+
+
+
+Future<Map<String, double?>> conversion_map(Future<Map<String, String?>> oldi) async {
+  final oldMap = await oldi;
+  final Map<String, double?> newMap = {};
+
+  oldMap.forEach((key, value) {
+    newMap[key] = value != null ? double.tryParse(value) : null;
+  });
+
+  return newMap;
+}
+
+
+
+Future<Map<String, double?>> _datazo() async {
+  print("La conexion es de tipo: ${widget.connectionManager.currentType}");
+
+if (widget.connectionManager.currentType == ConnectionType.wifi) {
+    final ip = widget.connectionManager.wifiService.ipAddress;
+    if (ip != null) {
+      return  obtenerDatosNumericos(ip);
+    } else {
+      print("❌ Sin conexión WiFi");
+      return {};
+    }
+  } else if (widget.connectionManager.currentType == ConnectionType.serial) {
+
+    if (widget.connectionManager.serialService.isConnected) {
+     await widget.connectionManager.serialService.enviarComando("GET_DATA");
+
+    final datos = await widget.connectionManager.serialService.getData();  
+      if (datos != null) {
+
+         final Map<String, double?> datosConvertidos = datos.map((key, value) {
+          return MapEntry(key, value?.toDouble());
+        });
+
+        return datosConvertidos;
+
+       // return datos; // Éxito
+      } else {
+        print("❌ No se encontraron datos");
+        return {};
+      }
+
+     
+    
+    } else {
+      print("❌ Sin conexion x cable");
+      return {};
+    }
+  }
+
+  print("❌ Conexión no soportada");
+
+
+
+return {};
+}
+
+
+
 
 /* ───────────────────────── 5. UI ───────────────────────── */
   @override

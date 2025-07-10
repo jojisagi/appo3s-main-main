@@ -137,9 +137,10 @@ class Creando_PhChart extends StatelessWidget {
   Widget _statsRow(BuildContext ctx, double maxY, double minY, double avgY) =>
       Padding(
         padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
+
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+
             children: [
               _card(ctx, 'Máximo', maxY.toStringAsFixed(2)),
               const SizedBox(width: 12),
@@ -148,7 +149,7 @@ class Creando_PhChart extends StatelessWidget {
               _card(ctx, 'Promedio', avgY.toStringAsFixed(2)),
             ],
           ),
-        ),
+
       );
 
   Widget _card(BuildContext ctx, String t, String v) => Card(

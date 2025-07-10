@@ -143,9 +143,9 @@ class Creando_OzoneChart extends StatelessWidget {
       double auc) =>
       Padding(
         padding: const EdgeInsets.all(16),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
+
           child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _card(ctx, 'Máximo', '${maxY.toStringAsFixed(2)} ppm'),
               const SizedBox(width: 12),
@@ -156,7 +156,7 @@ class Creando_OzoneChart extends StatelessWidget {
               _card(ctx, 'Área (AUC)', '${auc.toStringAsFixed(2)} ppm·s'),
             ],
           ),
-        ),
+
       );
 
   Widget _card(BuildContext ctx, String t, String v) => Card(

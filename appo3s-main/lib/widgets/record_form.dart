@@ -130,7 +130,21 @@ class _RecordFormState extends State<RecordForm> {
               // up-sert: crea o actualiza sin duplicar
               await context.read<RecordService>().saveRecord(nuevo);
 
-              if (mounted) Navigator.pop(context); // cierra el modal
+              if (mounted) {
+                Navigator.pop(context);                 // cierra el modal
+                
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: const Text('Registro guardado exitosamente'),
+                    duration: const Duration(seconds: 1),
+                  ),
+                );
+              }
+                
+
+
+              
             },
           ),
         ],

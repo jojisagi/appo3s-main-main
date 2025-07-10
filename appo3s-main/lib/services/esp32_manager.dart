@@ -25,11 +25,12 @@ class ConnectionManager {
       serialService.desconectar();
       return await wifiService.verificarConexion();
     } else {
+      
       return await _connectToSerial();
     }
   }
 
-  Future<bool> _connectToSerial() async {
+ Future<bool> _connectToSerial() async {
     final ports = obtenerPuertosDisponibles();
     for (var port in ports) {
       if (port.contains('COM') || port.contains('ttyUSB')) {

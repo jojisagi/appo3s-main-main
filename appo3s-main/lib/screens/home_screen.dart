@@ -56,7 +56,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Ejecutar luego del primer frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
+       _mostrarDialogo('Buscando Esp32 por WiFi...');
       _autoBuscarESP32();
+      if (_dialogoAbierto) _cerrarDialogo();
       checked = check_mode(_isConnected, developer_mode);
     });
   }
@@ -156,82 +158,20 @@ class _HomeScreenState extends State<HomeScreen> {
         _isConnected = true;
         _wifiService.ipAddress = ipBroadcast;
         result = true;
+         setState(() {
+      check_mode(_isConnected, developer_mode);
+        });
+
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('ESP32 encontrado en $ipBroadcast (Broadcast UDP)')),
           );
         }
-      } else {
-        final ipLocal = await _obtenerIpLocal();
-        print('IP local obtenida: $ipLocal');
-
-        if (_cancelarBusqueda) return false;
-        if (!mounted) return false;
-        if (ipLocal == null) {
-          _cerrarDialogo();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Conectado a WiFi pero sin IP (¿problema de DHCP?)')),
-            );
-          }
-          return false;
-        }
-
-        final subnet = _extraerSubnet(ipLocal);
-        if (subnet.isEmpty) {
-          _cerrarDialogo();
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('IP inválida detectada: $ipLocal')),
-            );
-          }
-          return false;
-        }
-
-        _mostrarDialogoConCancelar('Buscando ESP32 escaneando la red...');
-        final ipEncontrada = await buscarIpESP32Extendido(subnet);
-        if (_cancelarBusqueda) {
-          _cerrarDialogo();
-          return false;
-        }
-        _cerrarDialogo();
-
-        if (!mounted) return false;
-
-        if (ipEncontrada != null) {
-          print('ESP32 encontrado en $ipEncontrada');
-          _wifiService.ipAddress = ipEncontrada;
-          result = true;
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('ESP32 encontrado en $ipEncontrada (Escaneo extendido)')),
-            );
-          }
-        } else {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('No se encontró el ESP32 en la red.')),
-              
-            );
-          }
-          result = false;
-        }
+      
       }
 
-      if (_isSelected && result) {
-        final ok = await _connectionManager.switchConnection(ConnectionType.wifi);
-        if (mounted) {
-          
-          setState(() => _isConnected = true);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(_isConnected
-                  ? 'Conexión Wi-Fi con ESP32 establecida'
-                  : 'Fallo al conectar por Wi-Fi'),
-            ),
-          );
-        }
-      }
+
     } catch (e) {
       print('Error en _autoBuscarESP32: $e');
       _cerrarDialogo();
@@ -338,15 +278,22 @@ class _HomeScreenState extends State<HomeScreen> {
     bool connectionResult = false;
 
     try {
-      if (value) {
+      if (_isSelected) {
         if (!developer_mode) {
+          _mostrarDialogo('Buscando Esp32 por WiFi...');
           connectionResult = await _autoBuscarESP32();
+          _isConnected = connectionResult;
+          if (_dialogoAbierto) _cerrarDialogo();
+          if(connectionResult)
+          _connectionManager.switchConnection(ConnectionType.wifi);
+
         } else {
           connectionResult = true;
+          
         }
       } else {
         if (!developer_mode) {
-          _mostrarDialogo('Cambiando conexión a Serial...');
+          _mostrarDialogo('Buscando Esp32 por cable Serial...');
           connectionResult = await _connectionManager.switchConnection(ConnectionType.serial);
           _isConnected=connectionResult;
           if (_dialogoAbierto) _cerrarDialogo();
@@ -358,27 +305,41 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       print('Error al cambiar conexión: $e');
       connectionResult = false;
-      _isConnected=false;
+
     }
+
+     setState(() {
+        _isConnected = connectionResult;
+
+      });
 
     if (mounted) {
       _cerrarDialogo();
 
-      setState(() {
-        _isConnected = connectionResult;
-        _isConnected=_connectionManager.serialService.isConnected;
-      });
-
-      ScaffoldMessenger.of(dialogContext).showSnackBar(
+     
+    
+    if(!_isSelected){
+            ScaffoldMessenger.of(dialogContext).showSnackBar(
         SnackBar(
           content: Text(
-            connectionResult
+            connectionResult 
                 ? 'Conectado por ${value ? 'Wi-Fi' : 'Cable'}'
                 : 'Error al conectar por ${value ? 'Wi-Fi' : 'Cable'}',
           ),
           duration: const Duration(seconds: 2),
         ),
       );
+
+    }
+
+
+
+          setState(() {
+
+      check_mode(_isConnected, developer_mode);
+    });
+
+
     }
   }
 
@@ -386,8 +347,14 @@ bool check_mode(bool conecte , bool devele) {
     bool x = false;
     if (devele) {
       x = true; // Modo desarrollador, siempre activo
+      setState(() {
+        _isConnected = true; // Forzar conexión en modo desarrollador
+      });
     } else {
       x = conecte; // Depende del estado del switch
+      
+
+
     }
     setState(() {
       checked = x;
@@ -408,13 +375,15 @@ bool check_mode(bool conecte , bool devele) {
             padding: const EdgeInsets.only(right: 16),
             child: Row(
               children: [
+            
+
                 Container(
                   width: 14,
                   height: 14,
                   margin: const EdgeInsets.only(right: 8),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _isConnected ? Colors.green : Colors.red,
+                    color: checked ? Colors.green : Colors.red,
                   ),
                 ),
                 Icon(_isSelected ? Icons.wifi : Icons.cable, size: 24),
@@ -425,6 +394,14 @@ bool check_mode(bool conecte , bool devele) {
                   value: _isSelected,
                   onChanged: _handleSwitchChange,
                 ),
+
+                 IconButton(
+              tooltip: 'Recargar',
+              icon: const Icon(Icons.refresh),
+               onPressed: () {
+        _handleSwitchChange(_isSelected); // Simula cambio
+              },
+            ),
               ],
             ),
           ),

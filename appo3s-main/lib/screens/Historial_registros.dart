@@ -1,3 +1,4 @@
+
 // lib/screens/historial_registros.dart
 import 'dart:async';
 import 'dart:math';
@@ -284,7 +285,7 @@ class _RegistroList extends StatelessWidget {
             }).toList(),
           );
         },
-      ),
-    );
-  }
+     ),
+     );
+     }
 }
