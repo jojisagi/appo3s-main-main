@@ -45,7 +45,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
     _ozOriginal   = widget.record.muestreoOzone.deepCopy();
     _phOriginal   = widget.record.muestreoPh.deepCopy();
     _condOriginal = widget.record.muestreoConductivity.deepCopy();
-    _tempOriginal = widget.record.muestreoConductivity.deepCopy();
+    _tempOriginal = widget.record.muestreoTemperatura.deepCopy();
     _oz   = _ozOriginal.deepCopy();
     _ph   = _phOriginal.deepCopy();
     _cond = _condOriginal.deepCopy();

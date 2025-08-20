@@ -72,7 +72,7 @@ class Record {
     'muestreo_ozone'       : muestreoOzone.toJson(),
     'muestreo_ph'          : muestreoPh.toJson(),
     'muestreo_conductivity': muestreoConductivity.toJson(),
-     'muestreo_temperatura': muestreoConductivity.toJson(),
+     'muestreo_temperatura': muestreoTemperatura .toJson(),
   };
 
   /* ─── copias ─── */

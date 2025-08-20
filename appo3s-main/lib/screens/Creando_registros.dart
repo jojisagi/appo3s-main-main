@@ -28,11 +28,13 @@ import '../services/esp32_wifi_dns.dart';
 class CreandoRegistros extends StatefulWidget {
   final Record? original;
   final ConnectionManager connectionManager;
+  final bool developer_mode;
 
   const CreandoRegistros({
     super.key,
     this.original,
     required this.connectionManager,
+    required this.developer_mode,
   });
 
   @override
@@ -56,6 +58,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
   Duration _elapsed     = Duration.zero;
   Timer?   _ticker;
   final    _rnd = Random();
+  bool devele=false;
 
     // Control para diálogo abierto
   bool _dialogoAbierto = false;
@@ -81,6 +84,9 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     _ph           = _record.muestreoPh.deepCopy();
     _conductivity = _record.muestreoConductivity.deepCopy();
     _temperatura = _record.muestreoTemperatura.deepCopy();
+    
+    devele=widget.developer_mode;
+    print("Iniciando en developer mode-- ${devele}");
   }
 
   @override
@@ -154,6 +160,19 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
   final m = smp.selectedMinutes;
   final sec = smp.selectedSeconds;
 
+  if (devele==true){
+   print("developer mode:::true");
+    inyectar_Datos_developer__mode(m,sec);
+
+  }else{
+      print("developer mode:::false");
+      inyectar_datos( m, sec);
+  }
+
+  if (mounted) setState(() {});
+}
+
+void inyectar_datos(final m, final sec) async{
   while (true) {
     try {
       print('⏱️ Intentando inyectar datos en $m:$sec...');
@@ -182,11 +201,17 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     await Future.delayed(const Duration(seconds: 1));
   }
 
-
-
-  if (mounted) setState(() {});
 }
 
+void inyectar_Datos_developer__mode(final m, final sec) async{
+  print('⏱️ Intentando inyectar datos en $m:$sec...');
+   _ozone       .actualizarMuestras_time(m, sec, _rnd.nextDouble()*100);            // 0-1 ppm
+    _ph          .actualizarMuestras_time(m, sec, 1 + _rnd.nextDouble() * 13);   // 1-14
+    _conductivity.actualizarMuestras_time(m, sec, _rnd.nextDouble() * 2000);     // 0-20
+    _temperatura.actualizarMuestras_time(m, sec, _rnd.nextDouble() * 10);
+
+    _timePattern.index_actual++;
+}
 
 
 Future<Map<String, double?>> conversion_map(Future<Map<String, String?>> oldi) async {
@@ -335,7 +360,7 @@ return {};
                 muestreoOzone       : _ozone,
                 muestreoPh          : _ph,
                 muestreoConductivity: _conductivity,
-                muestreootemp: _temperatura,
+                muestreotemp: _temperatura,
               ),
             ),
           )

@@ -40,7 +40,7 @@ class Creando_temp_Chart extends StatelessWidget {
     final minY = ys.reduce((a, b) => a < b ? a : b);
     final avgY = ys.reduce((a, b) => a + b) / ys.length;
 
-    final maxYaxis = maxY < 14 ? 14.0 : (maxY * 1.1).ceilToDouble();
+    final maxYaxis = maxY < 100 ? 100 : (maxY * 1.1).ceilToDouble();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -58,10 +58,11 @@ class Creando_temp_Chart extends StatelessWidget {
               minX: 0,
               maxX: spots.last.x,
               minY: 0,
-              maxY: maxYaxis,
+              maxY: 100,
               gridData: const FlGridData(
                 show: true,
-                horizontalInterval: 1,
+                horizontalInterval: 5,
+
               ),
               lineTouchData: const LineTouchData(
                 handleBuiltInTouches: true,
@@ -121,7 +122,7 @@ class Creando_temp_Chart extends StatelessWidget {
       axisNameSize: 24,
       sideTitles: SideTitles(
         showTitles  : true,
-        interval    : 1,
+        interval    : 10,
         reservedSize: 28,
         getTitlesWidget: (v, _) =>
             Text(v.toInt().toString(),

@@ -10,14 +10,14 @@ class RecordForm extends StatefulWidget {
   final Muestreo muestreoOzone;
   final Muestreo muestreoPh;
   final Muestreo muestreoConductivity;
-  final Muestreo muestreootemp;
+  final Muestreo muestreotemp;
 
   const RecordForm({
     super.key,
     required this.muestreoOzone,
     required this.muestreoPh,
     required this.muestreoConductivity,
-    required this.muestreootemp,
+    required this.muestreotemp,
   });
 
   @override
@@ -156,7 +156,7 @@ class _RecordFormState extends State<RecordForm> {
                 muestreoOzone       : widget.muestreoOzone.deepCopy(),
                 muestreoPh          : widget.muestreoPh.deepCopy(),
                 muestreoConductivity: widget.muestreoConductivity.deepCopy(),
-               muestreoTemperatura: widget.muestreootemp.deepCopy(),
+               muestreoTemperatura: widget.muestreotemp.deepCopy(),
               );
 
               _mostrarDialogo('Guardando en base de datos...');
