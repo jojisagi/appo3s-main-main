@@ -35,6 +35,7 @@ void saveToTxt(
     Muestreo muestreoOzone,
     Muestreo muestreoPh,
     Muestreo muestreoConductivity,
+    Muestreo muestreoTemperatura,
     ) {
   final content = '''
 Registro de Muestreo
@@ -46,6 +47,7 @@ Fecha/Hora    : $fechaHora
 PUNTOS (t = mm:ss,  y = valor)
 
 ${_muestreoTxt('OZONO (ppm)',          muestreoOzone)}
+${_muestreoTxt('TEMPERATURA (°C))',muestreoTemperatura)}
 ${_muestreoTxt('pH (unidades)',        muestreoPh)}
 ${_muestreoTxt('CONDUCTIVIDAD (µS/cm)',muestreoConductivity)}
 ''';
@@ -71,6 +73,7 @@ void saveToCsv(
     Muestreo muestreoOzone,
     Muestreo muestreoPh,
     Muestreo muestreoConductivity,
+    Muestreo muestreoTemperatura
     ) {
   final b = StringBuffer();
   b.writeln('contaminante,concentracion,fecha_hora');
@@ -78,6 +81,7 @@ void saveToCsv(
 
   b.writeln('serie,t,valor');
   b.write(_muestreoCsv('ozone'       , muestreoOzone));
+  b.write(_muestreoCsv('temperature'     , muestreoTemperatura));
   b.write(_muestreoCsv('ph'          , muestreoPh));
   b.write(_muestreoCsv('conductivity', muestreoConductivity));
 

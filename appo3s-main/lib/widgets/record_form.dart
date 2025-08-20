@@ -10,12 +10,14 @@ class RecordForm extends StatefulWidget {
   final Muestreo muestreoOzone;
   final Muestreo muestreoPh;
   final Muestreo muestreoConductivity;
+  final Muestreo muestreootemp;
 
   const RecordForm({
     super.key,
     required this.muestreoOzone,
     required this.muestreoPh,
     required this.muestreoConductivity,
+    required this.muestreootemp,
   });
 
   @override
@@ -29,7 +31,36 @@ class _RecordFormState extends State<RecordForm> {
   double    _concentracion = 0;
   DateTime  _fecha         = DateTime.now();
   TimeOfDay _hora          = TimeOfDay.now();
+    // Control para diálogo abierto
+  bool _dialogoAbierto = false;
 
+    void _mostrarDialogo(String mensaje) {
+    if (_dialogoAbierto) return;
+    _dialogoAbierto = true;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Expanded(child: Text(mensaje)),
+          ],
+        ),
+      ),
+    ).then((_) {
+      _dialogoAbierto = false;
+    });
+  }
+
+  void _cerrarDialogo() {
+    if (_dialogoAbierto && mounted && Navigator.canPop(context)) {
+      Navigator.of(context, rootNavigator: true).pop();
+      _dialogoAbierto = false;
+    }
+  }
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.all(16),
@@ -125,14 +156,20 @@ class _RecordFormState extends State<RecordForm> {
                 muestreoOzone       : widget.muestreoOzone.deepCopy(),
                 muestreoPh          : widget.muestreoPh.deepCopy(),
                 muestreoConductivity: widget.muestreoConductivity.deepCopy(),
+               muestreoTemperatura: widget.muestreootemp.deepCopy(),
               );
 
+              _mostrarDialogo('Guardando en base de datos...');
               // up-sert: crea o actualiza sin duplicar
               await context.read<RecordService>().saveRecord(nuevo);
+                  
 
+                  
               if (mounted) {
+                _cerrarDialogo();               // cierra el diálogo de carga
                 Navigator.pop(context);                 // cierra el modal
                 
+              
                 
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(

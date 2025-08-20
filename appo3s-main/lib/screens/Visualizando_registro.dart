@@ -10,6 +10,7 @@ import '../services/record_service.dart';
 import '../widgets/creando_conductivity_chart.dart';
 import '../widgets/creando_ozone_chart.dart';
 import '../widgets/creando_ph_chart.dart';
+import '../widgets/creando_temp_chart.dart';
 import '../widgets/record_widget_simple.dart';
 import '../utils/file_saver.dart';
 
@@ -26,8 +27,8 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
   static const double _chartH = 260;
 
 /* ────────── buffers ────────── */
-  late Muestreo _ozOriginal, _phOriginal, _condOriginal;
-  late Muestreo _oz, _ph, _cond;
+  late Muestreo _ozOriginal, _phOriginal, _condOriginal,_tempOriginal;
+  late Muestreo _oz, _ph, _cond, _temp;
 
 /* ────────── control animación ────────── */
   Timer? _timer;
@@ -44,9 +45,11 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
     _ozOriginal   = widget.record.muestreoOzone.deepCopy();
     _phOriginal   = widget.record.muestreoPh.deepCopy();
     _condOriginal = widget.record.muestreoConductivity.deepCopy();
+    _tempOriginal = widget.record.muestreoConductivity.deepCopy();
     _oz   = _ozOriginal.deepCopy();
     _ph   = _phOriginal.deepCopy();
     _cond = _condOriginal.deepCopy();
+    _temp = _tempOriginal.deepCopy();
     _total = _ozOriginal.count;
   }
 
@@ -67,6 +70,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
       _copiarPunto(_ozOriginal  , _oz  , _idx);
       _copiarPunto(_phOriginal  , _ph  , _idx);
       _copiarPunto(_condOriginal, _cond, _idx);
+      _copiarPunto (_tempOriginal,_temp,_idx);
       setState(() {});
       if (++_idx >= _total) {
         t.cancel();
@@ -86,6 +90,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
         _oz   = _ozOriginal.cloneEmpty();
         _ph   = _phOriginal.cloneEmpty();
         _cond = _condOriginal.cloneEmpty();
+        _temp = _tempOriginal.cloneEmpty();
       });
       _programarTimer();
     } else if (_paused) {
@@ -102,6 +107,8 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
     _ozOriginal   = _oz.deepCopy();
     _phOriginal   = _ph.deepCopy();
     _condOriginal = _cond.deepCopy();
+    _tempOriginal = _temp.deepCopy();
+
 
     await context.read<RecordService>().saveRecord(
       widget.record.copyWith(
@@ -109,6 +116,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
         muestreoOzone        : _ozOriginal,
         muestreoPh           : _phOriginal,
         muestreoConductivity : _condOriginal,
+        muestreoTemperatura: _tempOriginal,
       ),
     );
 
@@ -119,7 +127,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
     if (mounted) {
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Simulación guardada')));
+          .showSnackBar(const SnackBar(content: Text('Simulación recreada exitosamente')));
     }
   }
 
@@ -241,8 +249,31 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
             const SizedBox(height: 24),
 
-            /* ─── Ozono ─── */
-            _chartWithPan(_safeChart(Creando_OzoneChart(muestreo: _oz), _oz)),
+            /* ─── Ozono ───  + temperatura*/
+
+
+                        LayoutBuilder(
+              builder: (ctx, cons) {
+                final wide = cons.maxWidth >= 680;
+                final children = [
+                  Expanded(
+                    child: _chartWithPan(_safeChart(Creando_OzoneChart(muestreo: _oz), _oz)),
+                  ),
+                  if (wide)
+                    const SizedBox(width: 20)
+                  else
+                    const SizedBox(height: 20),
+                  Expanded(
+                    child: _chartWithPan(
+                      _safeChart(Creando_temp_Chart(muestreo: _temp), _temp),
+                    ),
+                  ),
+                ];
+                return wide
+                    ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: children)
+                    : Column(children: children);
+              },
+            ),
 
             const SizedBox(height: 24),
 
@@ -288,7 +319,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
                       widget.record.contaminante,
                       widget.record.concentracion,
                       widget.record.fechaHora,
-                      _ozOriginal, _phOriginal, _condOriginal,
+                      _ozOriginal, _phOriginal, _condOriginal,_tempOriginal,
                     ),
                     child: const Text('Guardar txt'),
                   ),
@@ -301,7 +332,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
                       widget.record.contaminante,
                       widget.record.concentracion,
                       widget.record.fechaHora,
-                      _ozOriginal, _phOriginal, _condOriginal,
+                      _ozOriginal, _phOriginal, _condOriginal,_tempOriginal,
                     ),
                     child: const Text('Guardar csv'),
                   ),

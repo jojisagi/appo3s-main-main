@@ -4,8 +4,8 @@ import 'package:fl_chart/fl_chart.dart';
 import '../models/muestreo.dart';
 import '../models/sample.dart';
 
-class Creando_ConductivityChart extends StatelessWidget {
-  const Creando_ConductivityChart({
+class Creando_temp_Chart extends StatelessWidget {
+  const Creando_temp_Chart({
     super.key,
     required this.muestreo,
     this.useViewport = false,
@@ -16,17 +16,14 @@ class Creando_ConductivityChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const emphColor = Color.fromARGB(255, 169, 238, 159);
+    const Color emphColor = Color.fromARGB(255, 240, 147, 239);
 
-    // Usa el viewport si existe; de lo contrario, todos los samples.
     final List<Sample> data = useViewport
         ? ((muestreo as dynamic).inView as List<Sample>? ?? muestreo.samples)
         : muestreo.samples;
 
-    /* ───── Sin datos ───── */
     if (data.isEmpty) return _empty(context, emphColor);
 
-    /* ───── Conversión a FlSpot ───── */
     final original = data
         .map((s) => FlSpot(
       (s.selectedMinutes * 60 + s.selectedSeconds).toDouble(),
@@ -38,27 +35,22 @@ class Creando_ConductivityChart extends StatelessWidget {
         ? original
         : [FlSpot(0, original.first.y), ...original];
 
-    /* ───── Estadísticas ───── */
     final ys   = data.map((e) => e.y).toList();
     final maxY = ys.reduce((a, b) => a > b ? a : b);
     final minY = ys.reduce((a, b) => a < b ? a : b);
     final avgY = ys.reduce((a, b) => a + b) / ys.length;
 
-    // Eje Y se expande si el máximo real supera 2 000 µS.
-    final maxYaxis = maxY < 2000 ? 2000.0 : (maxY * 1.1).ceilToDouble();
+    final maxYaxis = maxY < 14 ? 14.0 : (maxY * 1.1).ceilToDouble();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
           padding: const EdgeInsets.all(8),
-          child: Text(
-            'Monitoreo de Conductividad',
-            style: Theme.of(context).textTheme.headlineSmall,
-            textAlign: TextAlign.center,
-          ),
+          child: Text('Monitoreo de temperatura',
+              style: Theme.of(context).textTheme.headlineSmall,
+              textAlign: TextAlign.center),
         ),
-        /* ─── Gráfica ─── */
         AspectRatio(
           aspectRatio: 16 / 9,
           child: LineChart(
@@ -69,7 +61,7 @@ class Creando_ConductivityChart extends StatelessWidget {
               maxY: maxYaxis,
               gridData: const FlGridData(
                 show: true,
-                horizontalInterval: 200,
+                horizontalInterval: 1,
               ),
               lineTouchData: const LineTouchData(
                 handleBuiltInTouches: true,
@@ -82,8 +74,8 @@ class Creando_ConductivityChart extends StatelessWidget {
                   color        : Colors.blue,
                   dotData      : const FlDotData(show: true),
                   belowBarData : BarAreaData(
-                    show  : true,
-                    color : emphColor.withOpacity(.30),
+                    show : true,
+                    color: emphColor.withOpacity(.25),
                   ),
                 ),
               ],
@@ -98,7 +90,7 @@ class Creando_ConductivityChart extends StatelessWidget {
     );
   }
 
-  /* ─ Helpers UI ─ */
+  /* ─ Helpers ─ */
 
   FlTitlesData _titlesData(List<FlSpot> spots) => FlTitlesData(
     bottomTitles: AxisTitles(
@@ -109,7 +101,7 @@ class Creando_ConductivityChart extends StatelessWidget {
       ),
       sideTitles: SideTitles(
         showTitles  : true,
-        reservedSize: 40,
+        reservedSize: 32,
         interval    : ((spots.last.x - spots.first.x) / 8)
             .clamp(1, double.infinity),
         getTitlesWidget: (v, _) {
@@ -123,16 +115,17 @@ class Creando_ConductivityChart extends StatelessWidget {
     leftTitles: AxisTitles(
       axisNameWidget: const Padding(
         padding: EdgeInsets.only(right: 4),
-        child: Text('µS/cm',
+        child: Text('C',
             style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
       ),
       axisNameSize: 24,
       sideTitles: SideTitles(
         showTitles  : true,
-        reservedSize: 46,
-        interval    : 400,
+        interval    : 1,
+        reservedSize: 28,
         getTitlesWidget: (v, _) =>
-            Text('${v.toInt()}', style: const TextStyle(fontSize: 10)),
+            Text(v.toInt().toString(),
+                style: const TextStyle(fontSize: 10)),
       ),
     ),
     rightTitles: const AxisTitles(
@@ -144,27 +137,38 @@ class Creando_ConductivityChart extends StatelessWidget {
   Widget _statsRow(BuildContext ctx, double maxY, double minY, double avgY) =>
       Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _statCard(ctx, 'Máximo', '${maxY.toStringAsFixed(2)} µS'),
-            _statCard(ctx, 'Mínimo', '${minY.toStringAsFixed(2)} µS'),
-            _statCard(ctx, 'Promedio', '${avgY.toStringAsFixed(2)} µS'),
-          ],
-        ),
+
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+
+            children: [
+              _card(ctx, 'Máximo', maxY.toStringAsFixed(2)),
+              const SizedBox(width: 12),
+              _card(ctx, 'Mínimo', minY.toStringAsFixed(2)),
+              const SizedBox(width: 12),
+              _card(ctx, 'Promedio', avgY.toStringAsFixed(2)),
+            ],
+          ),
+
       );
 
-  Widget _statCard(BuildContext ctx, String t, String v) => Card(
+  Widget _card(BuildContext ctx, String t, String v) => Card(
     elevation: 2,
     child: Padding(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(8),
       child: Column(
         children: [
-          Text(t, style: TextStyle(color: Colors.grey[600])),
+          Text(t,
+              style:
+              Theme.of(ctx).textTheme.labelSmall?.copyWith(
+                color: Colors.grey[600],
+              )),
           const SizedBox(height: 4),
           Text(v,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
+              style: Theme.of(ctx)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(fontWeight: FontWeight.bold)),
         ],
       ),
     ),
@@ -175,12 +179,12 @@ class Creando_ConductivityChart extends StatelessWidget {
     children: [
       Padding(
         padding: const EdgeInsets.all(8),
-        child: Text('Monitoreo de Conductividad',
+        child: Text('Monitoreo de temperatura',
             style: Theme.of(ctx).textTheme.headlineSmall,
             textAlign: TextAlign.center),
       ),
       AspectRatio(
-        aspectRatio: 15.8 / 9,
+        aspectRatio: 16 / 9,
         child: Container(
           color: c,
           child: const Center(child: Text('Sin datos aún')),

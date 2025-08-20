@@ -39,6 +39,7 @@ class Esp32Service extends ChangeNotifier {
     'o3'  : <Record>[],
     'cond': <Record>[],
     'ph'  : <Record>[],
+    'temp':<Record> [],
   };
 
   bool        espOnline    = false;
@@ -56,6 +57,8 @@ class Esp32Service extends ChangeNotifier {
   get condMuestreo => null;
 
   get ozoneMuestreo => null;
+
+    get tempMuestreo => null;
 
   get conc => null;
 
@@ -86,13 +89,14 @@ class Esp32Service extends ChangeNotifier {
       if (res.statusCode != 200) throw 'HTTP ${res.statusCode}';
 
       final j = jsonDecode(res.body) as Map<String, dynamic>;
-      for (final k in ['o3', 'cond', 'ph', 'timestamp']) {
+      for (final k in ['o3', 'cond', 'ph', 'temp','timestamp']) {
         if (!j.containsKey(k)) throw 'Campo "$k" ausente';
       }
 
       _add('o3',   j['o3'],   j['timestamp']);
       _add('cond', j['cond'], j['timestamp']);
       _add('ph',   j['ph'],   j['timestamp']);
+      _add('temp',   j['temp'],   j['timestamp']);
 
       espOnline   = true;
       lastError   = null;
@@ -124,6 +128,7 @@ class Esp32Service extends ChangeNotifier {
         muestreoOzone        : ozoneMuestreo,
         muestreoPh           : phMuestreo,
         muestreoConductivity : condMuestreo,
+        muestreoTemperatura: tempMuestreo,
       ),
     );
     if (list.length > maxSamples) list.removeAt(0);

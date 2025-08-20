@@ -191,8 +191,12 @@ class _HistorialRegistrosState extends State<HistorialRegistros> {
               onPressed: () async {
                 setState(() => _loading = true);
                 await _fetch();
+                //_initAndFetch();
               },
             ),
+
+
+
           ],
         ),
       ),

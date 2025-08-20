@@ -11,6 +11,7 @@ import '../services/record_service.dart';
 import '../widgets/creando_conductivity_chart.dart';
 import '../widgets/creando_ozone_chart.dart';
 import '../widgets/creando_ph_chart.dart';
+import '../widgets/creando_temp_chart.dart';
 import '../widgets/editing_samples.dart';
 import '../widgets/record_form.dart';
 import '../widgets/timer_widget.dart';
@@ -46,6 +47,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
   late Muestreo _ozone;
   late Muestreo _ph;
   late Muestreo _conductivity;
+  late Muestreo _temperatura;
   final Muestreo _timePattern = Muestreo(); // pauta mm:ss del Timer
 
   bool     _patternSet  = false;
@@ -55,6 +57,8 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
   Timer?   _ticker;
   final    _rnd = Random();
 
+    // Control para diálogo abierto
+  bool _dialogoAbierto = false;
 /* ───────────────────────── 2. INIT / DISPOSE ───────────────────────── */
   @override
   void initState() {
@@ -69,12 +73,14 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
           muestreoOzone        : Muestreo(),
           muestreoPh           : Muestreo(),
           muestreoConductivity : Muestreo(),
+          muestreoTemperatura : Muestreo (),
         );
 
     // Los buffers NO deben apuntar al mismo objeto
     _ozone        = _record.muestreoOzone.deepCopy();
     _ph           = _record.muestreoPh.deepCopy();
     _conductivity = _record.muestreoConductivity.deepCopy();
+    _temperatura = _record.muestreoTemperatura.deepCopy();
   }
 
   @override
@@ -95,6 +101,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     _ozone       .inicializar_con_otro_muestreo(nuevo);
     _ph          .inicializar_con_otro_muestreo(nuevo);
     _conductivity.inicializar_con_otro_muestreo(nuevo);
+    _temperatura.inicializar_con_otro_muestreo (nuevo);
 
     setState(() {});
   }
@@ -127,6 +134,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
       muestreoOzone        : _ozone.deepCopy(),
       muestreoPh           : _ph.deepCopy(),
       muestreoConductivity : _conductivity.deepCopy(),
+      muestreoTemperatura   : _temperatura.deepCopy(),
       fechaHora            : DateTime.now(),
     );
 
@@ -141,8 +149,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
   final smp = _timePattern[_timePattern.index_actual];
   if (_elapsed.inSeconds < smp.totalSeconds) return;
 
-  // 🛑 Pausa el timer mientras intenta leer los datos
-  _ticker?.cancel();
+  
 
   final m = smp.selectedMinutes;
   final sec = smp.selectedSeconds;
@@ -154,12 +161,13 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
 
       // Si hay al menos un valor válido, considera que fue exitoso
       final bool valid = data.isNotEmpty &&
-          (data['Ozono'] != null || data['pH'] != null || data['Conductividad'] != null);
+          (data['Ozono'] != null || data['pH'] != null || data['Conductividad'] != null || data['Temperatura']!=null);
 
       if (valid) {
-        _ozone       .actualizarMuestras_time(m, sec, data['Ozono'] ?? 0.0);
+        _ozone       .actualizarMuestras_time(m, sec, data['Ozone'] ?? 0.0);
         _ph          .actualizarMuestras_time(m, sec, data['pH'] ?? 0.0);
         _conductivity.actualizarMuestras_time(m, sec, data['Conductividad'] ?? 0.0);
+        _temperatura.actualizarMuestras_time(m, sec, data['Temperatura'] ?? 0.0);
 
         _timePattern.index_actual++;
         break; // ✅ Sal del while
@@ -174,12 +182,7 @@ class _CreandoRegistrosState extends State<CreandoRegistros> {
     await Future.delayed(const Duration(seconds: 1));
   }
 
-  // ▶️ Reanudar el timer
-  _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
-    _elapsed += const Duration(seconds: 1);
-    _injectMockValuesIfNeeded();
-    if (mounted) setState(() {});
-  });
+
 
   if (mounted) setState(() {});
 }
@@ -196,6 +199,7 @@ Future<Map<String, double?>> conversion_map(Future<Map<String, String?>> oldi) a
 
   return newMap;
 }
+
 
 
 
@@ -246,7 +250,33 @@ return {};
 }
 
 
+  void _mostrarDialogo(String mensaje) {
+    if (_dialogoAbierto) return;
+    _dialogoAbierto = true;
 
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        content: Row(
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(width: 16),
+            Expanded(child: Text(mensaje)),
+          ],
+        ),
+      ),
+    ).then((_) {
+      _dialogoAbierto = false;
+    });
+  }
+
+  void _cerrarDialogo() {
+    if (_dialogoAbierto && mounted && Navigator.canPop(context)) {
+      Navigator.of(context, rootNavigator: true).pop();
+      _dialogoAbierto = false;
+    }
+  }
 
 /* ───────────────────────── 5. UI ───────────────────────── */
   @override
@@ -262,6 +292,7 @@ return {};
       muestreoOzone       : _ozone,
       muestreoPh          : _ph,
       muestreoConductivity: _conductivity,
+      muestreoTemperatura : _temperatura,
       onStart             : _onStart,
     ),
     floatingActionButton: Column(
@@ -304,6 +335,7 @@ return {};
                 muestreoOzone       : _ozone,
                 muestreoPh          : _ph,
                 muestreoConductivity: _conductivity,
+                muestreootemp: _temperatura,
               ),
             ),
           )
@@ -325,6 +357,8 @@ class _GraphsBody extends StatelessWidget {
   final Muestreo     muestreoOzone;
   final Muestreo     muestreoPh;
   final Muestreo     muestreoConductivity;
+  final Muestreo  muestreoTemperatura;
+
   final VoidCallback onStart;
 
   const _GraphsBody({
@@ -333,6 +367,7 @@ class _GraphsBody extends StatelessWidget {
     required this.muestreoOzone,
     required this.muestreoPh,
     required this.muestreoConductivity,
+    required this.muestreoTemperatura,
     required this.onStart,
   });
 
@@ -344,10 +379,33 @@ class _GraphsBody extends StatelessWidget {
       children: [
         TimerWidget(muestreo: muestreoTime, onStart: onStart),
         const SizedBox(height: 20),
-        Creando_OzoneChart(
-          key     : ValueKey(muestreoOzone.hashCode),
-          muestreo: muestreoOzone,
+      
+        Row(
+          children: [
+
+
+            Expanded(
+              child:   Creando_OzoneChart(
+                  key     : ValueKey(muestreoOzone.hashCode),
+                  muestreo: muestreoOzone,
+                ),
+            ),
+            const SizedBox(width: 20),
+
+             Expanded(
+              child:  Creando_temp_Chart(
+                      key     : ValueKey(muestreoTemperatura.hashCode),
+                      muestreo: muestreoTemperatura,
+                    ),
+            ),
+
+            
+          ],
         ),
+       
+
+        
+        
         const SizedBox(height: 20),
         Row(
           children: [
@@ -366,6 +424,9 @@ class _GraphsBody extends StatelessWidget {
             ),
           ],
         ),
+
+
+
       ],
     ),
   );

@@ -12,6 +12,7 @@ class Record {
   final Muestreo muestreoOzone;
   final Muestreo muestreoPh;
   final Muestreo muestreoConductivity;
+  final Muestreo muestreoTemperatura;
 
   const Record({
     this.id = '',
@@ -21,6 +22,7 @@ class Record {
     required this.muestreoOzone,
     required this.muestreoPh,
     required this.muestreoConductivity,
+    required this.muestreoTemperatura
   });
 
   /* ─── único constructor desde JSON (REST / Mongo) ─── */
@@ -55,6 +57,8 @@ class Record {
           (json['muestreo_ph']          as Map<String,dynamic>?) ?? {}),
       muestreoConductivity: Muestreo.fromJson(
           (json['muestreo_conductivity'] as Map<String,dynamic>?) ?? {}),
+       muestreoTemperatura: Muestreo.fromJson(
+          (json['muestreo_temperatura'] as Map<String,dynamic>?) ?? {}),
     );
   }
 
@@ -68,6 +72,7 @@ class Record {
     'muestreo_ozone'       : muestreoOzone.toJson(),
     'muestreo_ph'          : muestreoPh.toJson(),
     'muestreo_conductivity': muestreoConductivity.toJson(),
+     'muestreo_temperatura': muestreoConductivity.toJson(),
   };
 
   /* ─── copias ─── */
@@ -79,6 +84,7 @@ class Record {
     Muestreo? muestreoOzone,
     Muestreo? muestreoPh,
     Muestreo? muestreoConductivity,
+  Muestreo? muestreoTemperatura,
   }) =>
       Record(
         id                   : id ?? this.id,
@@ -88,6 +94,7 @@ class Record {
         muestreoOzone        : muestreoOzone        ?? this.muestreoOzone,
         muestreoPh           : muestreoPh           ?? this.muestreoPh,
         muestreoConductivity : muestreoConductivity ?? this.muestreoConductivity,
+        muestreoTemperatura : muestreoTemperatura ?? this.muestreoTemperatura,
       );
 
   /// Copia profunda (clona los muestreos)
@@ -99,5 +106,6 @@ class Record {
     muestreoOzone        : muestreoOzone.deepCopy(),
     muestreoPh           : muestreoPh.deepCopy(),
     muestreoConductivity : muestreoConductivity.deepCopy(),
+    muestreoTemperatura: muestreoTemperatura.deepCopy(),
   );
 }
