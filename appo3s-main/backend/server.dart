@@ -43,7 +43,8 @@ Future<void> main() async {
 
       try {
         final docs = await col.find().toList();
-        return Response.ok(jsonEncode(docs), headers: _jsonHeaders);
+        final serialized = docs.map(_serializeDoc).toList();
+        return Response.ok(jsonEncode(serialized), headers: _jsonHeaders);
       } catch (e) {
         return Response.internalServerError(
           body: jsonEncode({'error': 'Error al consultar registros: $e'}),
@@ -78,7 +79,7 @@ Future<void> main() async {
         );
 
         await col.insert(payload);
-        return Response(201, body: jsonEncode({'ok': true}), headers: _jsonHeaders);
+        return Response(201, body: jsonEncode(_serializeDoc(payload)), headers: _jsonHeaders);
       } catch (e) {
         return Response.internalServerError(
           body: jsonEncode({'error': 'Error al insertar: $e'}),
@@ -113,3 +114,13 @@ const _corsHeaders = {
   'Access-Control-Allow-Headers': '*',
   ..._jsonHeaders,
 };
+
+/// Convierte ObjectId y otros tipos BSON a tipos JSON-serializables.
+Map<String, dynamic> _serializeDoc(Map<String, dynamic> doc) {
+  return doc.map((key, value) {
+    if (value is ObjectId) return MapEntry(key, value.toHexString());
+    if (value is Map<String, dynamic>) return MapEntry(key, _serializeDoc(value));
+    if (value is List) return MapEntry(key, value.map((e) => e is Map<String, dynamic> ? _serializeDoc(e) : e).toList());
+    return MapEntry(key, value);
+  });
+}

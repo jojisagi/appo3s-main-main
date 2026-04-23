@@ -40,11 +40,11 @@ class AppO3Sense extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
-        colorSchemeSeed: const Color(0xFF3B6FB8),
+        colorSchemeSeed: const Color(0xFFE91E8C),
         appBarTheme: const AppBarTheme(
           centerTitle: true,
           elevation: 4,
-          backgroundColor: Color(0xFF3B6FB8),
+          backgroundColor: Color(0xFFE91E8C),
           titleTextStyle: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,

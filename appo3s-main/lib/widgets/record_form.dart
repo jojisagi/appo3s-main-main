@@ -160,24 +160,28 @@ class _RecordFormState extends State<RecordForm> {
               );
 
               _mostrarDialogo('Guardando en base de datos...');
-              // up-sert: crea o actualiza sin duplicar
-              await context.read<RecordService>().saveRecord(nuevo);
-                  
-
-                  
-              if (mounted) {
-                _cerrarDialogo();               // cierra el diálogo de carga
-                Navigator.pop(context);                 // cierra el modal
-                
-              
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Registro guardado exitosamente'),
-                    duration: const Duration(seconds: 1),
-                  ),
-                );
+              bool guardado = false;
+              String errorMsg = '';
+              try {
+                await context.read<RecordService>().saveRecord(nuevo);
+                guardado = true;
+              } catch (e) {
+                errorMsg = e.toString();
+                debugPrint('❌ Error al guardar: $e');
+              } finally {
+                _cerrarDialogo();
               }
+
+              if (!mounted) return;
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(guardado
+                      ? 'Registro guardado exitosamente'
+                      : 'Error al guardar: $errorMsg'),
+                  duration: const Duration(seconds: 3),
+                ),
+              );
                 
 
 

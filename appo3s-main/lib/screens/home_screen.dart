@@ -44,9 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     Mongo mongo = Mongo();
-//    mongo.iniciar_mongo(); // Conectar a MongoDB al iniciar
+   mongo.iniciar_mongo(); // Conectar a MongoDB al iniciar
 
-    _wifiService = ESP32WifiService(ipAddress: '10.74.22.231');
+    _wifiService = ESP32WifiService(ipAddress: '10.74.22.200');
     _wifiService.verificarConexion().then((ok) {
       print("Verificacion manual en initState: $ok");
     });

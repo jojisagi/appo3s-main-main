@@ -8,7 +8,6 @@ import '../models/muestreo.dart';
 import '../models/record.dart';
 import '../services/record_service.dart';
 import '../widgets/creando_conductivity_chart.dart';
-import '../widgets/creando_ozone_chart.dart';
 import '../widgets/creando_ph_chart.dart';
 import '../widgets/creando_temp_chart.dart';
 import '../widgets/record_widget_simple.dart';
@@ -27,8 +26,8 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
   static const double _chartH = 260;
 
 /* ────────── buffers ────────── */
-  late Muestreo _ozOriginal, _phOriginal, _condOriginal,_tempOriginal;
-  late Muestreo _oz, _ph, _cond, _temp;
+  late Muestreo _phOriginal, _condOriginal, _tempOriginal;
+  late Muestreo _ph, _cond, _temp;
 
 /* ────────── control animación ────────── */
   Timer? _timer;
@@ -42,15 +41,13 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
   @override
   void initState() {
     super.initState();
-    _ozOriginal   = widget.record.muestreoOzone.deepCopy();
     _phOriginal   = widget.record.muestreoPh.deepCopy();
     _condOriginal = widget.record.muestreoConductivity.deepCopy();
     _tempOriginal = widget.record.muestreoTemperatura.deepCopy();
-    _oz   = _ozOriginal.deepCopy();
     _ph   = _phOriginal.deepCopy();
     _cond = _condOriginal.deepCopy();
     _temp = _tempOriginal.deepCopy();
-    _total = _ozOriginal.count;
+    _total = _phOriginal.count;
   }
 
   @override
@@ -67,14 +64,18 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
   void _programarTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(Duration(milliseconds: _interval), (t) async {
-      _copiarPunto(_ozOriginal  , _oz  , _idx);
       _copiarPunto(_phOriginal  , _ph  , _idx);
       _copiarPunto(_condOriginal, _cond, _idx);
-      _copiarPunto (_tempOriginal,_temp,_idx);
+      _copiarPunto(_tempOriginal, _temp, _idx);
       setState(() {});
       if (++_idx >= _total) {
         t.cancel();
-        await _finishSim();
+        try {
+          await _finishSim();
+        } catch (e) {
+          debugPrint('❌ Error en _finishSim: $e');
+          if (mounted) setState(() { _running = false; _paused = false; });
+        }
       }
     });
   }
@@ -87,7 +88,6 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
         _running = true;
         _paused  = false;
         _idx     = 0;
-        _oz   = _ozOriginal.cloneEmpty();
         _ph   = _phOriginal.cloneEmpty();
         _cond = _condOriginal.cloneEmpty();
         _temp = _tempOriginal.cloneEmpty();
@@ -104,31 +104,27 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
 /* ────────── fin animación ────────── */
   Future<void> _finishSim() async {
-    _ozOriginal   = _oz.deepCopy();
     _phOriginal   = _ph.deepCopy();
     _condOriginal = _cond.deepCopy();
     _tempOriginal = _temp.deepCopy();
 
-
-    await context.read<RecordService>().saveRecord(
-      widget.record.copyWith(
-        fechaHora            : DateTime.now(),
-        muestreoOzone        : _ozOriginal,
-        muestreoPh           : _phOriginal,
-        muestreoConductivity : _condOriginal,
-        muestreoTemperatura: _tempOriginal,
-      ),
-    );
-
-    setState(() {
-      _running = false;
-      _paused  = false;
-    });
-
-    if (mounted) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Simulación recreada exitosamente')));
+    try {
+      await context.read<RecordService>().saveRecord(
+        widget.record.copyWith(
+          fechaHora            : DateTime.now(),
+          muestreoPh           : _phOriginal,
+          muestreoConductivity : _condOriginal,
+          muestreoTemperatura  : _tempOriginal,
+        ),
+      );
+    } catch (e) {
+      debugPrint('❌ saveRecord en simulación: $e');
     }
+
+    if (!mounted) return;
+    setState(() { _running = false; _paused = false; });
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Simulación recreada exitosamente')));
   }
 
 /* ────────── chart helpers ────────── */
@@ -249,31 +245,8 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
 
             const SizedBox(height: 24),
 
-            /* ─── Ozono ───  + temperatura*/
-
-
-                        LayoutBuilder(
-              builder: (ctx, cons) {
-                final wide = cons.maxWidth >= 680;
-                final children = [
-                  Expanded(
-                    child: _chartWithPan(_safeChart(Creando_OzoneChart(muestreo: _oz), _oz)),
-                  ),
-                  if (wide)
-                    const SizedBox(width: 20)
-                  else
-                    const SizedBox(height: 20),
-                  Expanded(
-                    child: _chartWithPan(
-                      _safeChart(Creando_temp_Chart(muestreo: _temp), _temp),
-                    ),
-                  ),
-                ];
-                return wide
-                    ? Row(crossAxisAlignment: CrossAxisAlignment.start, children: children)
-                    : Column(children: children);
-              },
-            ),
+            /* ─── Temperatura ─── */
+            _chartWithPan(_safeChart(Creando_temp_Chart(muestreo: _temp), _temp)),
 
             const SizedBox(height: 24),
 
@@ -319,7 +292,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
                       widget.record.contaminante,
                       widget.record.concentracion,
                       widget.record.fechaHora,
-                      _ozOriginal, _phOriginal, _condOriginal,_tempOriginal,
+                      Muestreo(), _phOriginal, _condOriginal, _tempOriginal,
                     ),
                     child: const Text('Guardar txt'),
                   ),
@@ -332,7 +305,7 @@ class _VisualizandoRegistrosState extends State<VisualizandoRegistros> {
                       widget.record.contaminante,
                       widget.record.concentracion,
                       widget.record.fechaHora,
-                      _ozOriginal, _phOriginal, _condOriginal,_tempOriginal,
+                      Muestreo(), _phOriginal, _condOriginal, _tempOriginal,
                     ),
                     child: const Text('Guardar csv'),
                   ),

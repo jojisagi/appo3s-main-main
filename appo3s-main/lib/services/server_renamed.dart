@@ -27,7 +27,7 @@ const _corsHeaders = {
 class Mongo{
 
 Future<void> iniciar_mongo() async {
-  final mongoUri = 'mongodb+srv://Katham:Katia280704@cluster0.crmou.mongodb.net/medicion_o3?retryWrites=true&w=majority';
+  final mongoUri = 'mongodb+srv://jorgesanchez:Alfresi123@cluster0.vsbti.mongodb.net/appo3s?retryWrites=true&w=majority';
 
   if (mongoUri.isEmpty) {
     print('❌  Falta MONGO_URI');
@@ -65,7 +65,8 @@ Future<void> iniciar_mongo() async {
 
       try {
         final docs = await col.find().toList();
-        return Response.ok(jsonEncode(docs), headers: _jsonHeaders);
+        final serialized = docs.map(_serializeDoc).toList();
+        return Response.ok(jsonEncode(serialized), headers: _jsonHeaders);
       } catch (e) {
         return Response.internalServerError(
           body: jsonEncode({'error': 'Error al consultar registros: $e'}),
@@ -100,7 +101,7 @@ Future<void> iniciar_mongo() async {
         );
 
         await col.insert(payload);
-        return Response(201, body: jsonEncode({'ok': true}), headers: _jsonHeaders);
+        return Response(201, body: jsonEncode(_serializeDoc(payload)), headers: _jsonHeaders);
       } catch (e) {
         return Response.internalServerError(
           body: jsonEncode({'error': 'Error al insertar: $e'}),
@@ -118,4 +119,13 @@ Future<void> iniciar_mongo() async {
   print('🌐 API escuchando en http://${server.address.host}:${server.port}');
 }
 
+}
+
+Map<String, dynamic> _serializeDoc(Map<String, dynamic> doc) {
+  return doc.map((key, value) {
+    if (value is ObjectId) return MapEntry(key, value.toHexString());
+    if (value is Map<String, dynamic>) return MapEntry(key, _serializeDoc(value));
+    if (value is List) return MapEntry(key, value.map((e) => e is Map<String, dynamic> ? _serializeDoc(e) : e).toList());
+    return MapEntry(key, value);
+  });
 }

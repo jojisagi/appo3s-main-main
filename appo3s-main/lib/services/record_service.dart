@@ -64,18 +64,16 @@ class RecordService extends ChangeNotifier {
           Uri.parse('$baseUrl/records'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(rec.toJson()),
-        );
+        ).timeout(const Duration(seconds: 10));
 
         if (res.statusCode != 200 && res.statusCode != 201) {
-          throw 'POST ${res.statusCode}';
+          throw 'POST ${res.statusCode}: ${res.body}';
         }
 
-        // el backend responde con el documento insertado (+ _id)
-        final inserted   = jsonDecode(res.body) as Map<String, dynamic>;
-        final newId      = (inserted['_id'] ?? '').toString();
-        final savedRec   = rec.copyWith(id: newId);
+        final inserted = jsonDecode(res.body) as Map<String, dynamic>;
+        final newId    = (inserted['_id'] ?? '').toString();
+        final savedRec = rec.copyWith(id: newId);
 
-        // Reemplaza la versión sin id por la definitiva
         _records.remove(rec);
         _records.add(savedRec);
         notifyListeners();
@@ -85,13 +83,13 @@ class RecordService extends ChangeNotifier {
           Uri.parse('$baseUrl/records/${rec.id}'),
           headers: {'Content-Type': 'application/json'},
           body: jsonEncode(rec.toJson()),
-        );
+        ).timeout(const Duration(seconds: 10));
 
-        if (res.statusCode != 200) throw 'PUT ${res.statusCode}';
+        if (res.statusCode != 200) throw 'PUT ${res.statusCode}: ${res.body}';
       }
     } catch (e) {
       debugPrint('❌ saveRecord → $e');
-      // opcional: revertir cambios en la cache si falló
+      rethrow;
     }
   }
 }
