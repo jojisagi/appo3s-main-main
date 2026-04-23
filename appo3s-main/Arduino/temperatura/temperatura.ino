@@ -10,8 +10,6 @@
 const char* ssid = "Gal";
 const char* password = "Katham2874";
 
-const char* ssid2="INFINITUM63A0_2.4";
-const char* password2 = "C0c4YF10abc123";
 
 WebServer server(80);
 WiFiUDP udp;                // Objeto UDP
@@ -29,11 +27,13 @@ const float V_CAL = 1.3;
 const float SLOPE_MV_PER_PH = 63.33;
 //conductivity values
 
+float calibration = 1.25; //change this value to calibrate
+
 
 //temperature values
 #define TdsSensorPin 32     // GPIO32 del ESP32
 
-#define VREF 3.3              // Voltaje de referencia del ADC
+#define VREF 5              // Voltaje de referencia del ADC
 #define SCOUNT 50             // Muestras para TDS
 #define NUM_PH_SAMPLES 10     // Muestras para promedio de pH
 #define ADC_MAX 4095          // Resolución de 12 bits
@@ -49,6 +49,8 @@ float currentTemperature = 0.0;
 float currentPh=0.0;
 float currentConductivity=0.0;
 float currentOzone=0.0;
+
+int BipperSensor=16;
 
 // Para mostrar IP periódicamente
 unsigned long lastIpPrint = 0;
@@ -74,7 +76,7 @@ void setup() {
   Serial.begin(115200);
   analogReadResolution(12);
   sensors.begin();
-
+pinMode(BipperSensor, OUTPUT);
   WiFi.begin(ssid, password);
   WiFi.setSleep(false);
   WiFi.setTxPower(WIFI_POWER_19_5dBm); 
@@ -82,6 +84,7 @@ void setup() {
   while (WiFi.status() != WL_CONNECTED) {
     delay(100);
     Serial.print(".");
+      bip();
   }
   Serial.println();
   Serial.print("Conectado, IP: ");
@@ -93,12 +96,20 @@ void setup() {
   server.on("/data", handleData);
 
   server.begin();
-
     //obteniendo valores
   getPh();
   getConductivity();
   getTemperature();
   getOzone();  
+
+}
+
+void bip(){
+  digitalWrite(BipperSensor, HIGH); // suena
+  delay(500);
+
+  digitalWrite(BipperSensor, LOW);  // silencio
+  delay(500);
 
 }
 
@@ -227,18 +238,22 @@ int packetSize = udp.parsePacket();
 }
 
 
-float getPh (){
+void getPh (){
+float b=0;
+        for(int i=0;i<10;i++)
+        {
+            b=b+analogRead(PH_PIN);
+            delay(30);
+        }
 
-  int raw = analogRead(PH_PIN);
-  float voltage = raw * V_REF / ADC_MAX;
-  float pH = 7.0 + ((V_CAL - voltage) * 1000.0) / SLOPE_MV_PER_PH;
+        b=b/10;
 
- currentPh=pH;
+        b=(float)((b/4095)*14)+calibration;
+        currentPh=b;
 
-return pH;
 }
 
-float getConductivity(){
+void getConductivity(){
   static unsigned long analogSampleTimepoint = millis();
   static unsigned long printTimepoint = millis();
   
@@ -270,7 +285,7 @@ float getConductivity(){
   }
 
   currentConductivity = tdsValue;
-  return tdsValue;
+
 }
 
 void printAll(){
@@ -333,6 +348,6 @@ float getTemperature(){
   } else {
     //Serial.println("Error: sensor no detectado.");
   }
-a
+
   return tempC;
 }

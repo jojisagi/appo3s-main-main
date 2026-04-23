@@ -27,7 +27,7 @@ const _corsHeaders = {
 class Mongo{
 
 Future<void> iniciar_mongo() async {
-  final mongoUri = 'mongodb+srv://jorgesanchez:Alfresi123@cluster0.vsbti.mongodb.net/appo3s?retryWrites=true&w=majority';
+  final mongoUri = 'mongodb+srv://Katham:Katia280704@cluster0.crmou.mongodb.net/medicion_o3?retryWrites=true&w=majority';
 
   if (mongoUri.isEmpty) {
     print('❌  Falta MONGO_URI');

@@ -28,10 +28,11 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isConnected = false;
   late final ESP32WifiService _wifiService;
   late final ConnectionManager _connectionManager;
-  bool developer_mode = true; // Variable para modo desarrollador
+  bool developer_mode = false;
   String ipEncontrada='0.0.0.0';
   String ipActual_ESP32='0.0.0.0';
   bool checked=false;
+  final TextEditingController _ipController = TextEditingController(text: '10.74.22.231');
 
   // Control para diálogo abierto
   bool _dialogoAbierto = false;
@@ -43,9 +44,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     Mongo mongo = Mongo();
-    mongo.iniciar_mongo(); // Conectar a MongoDB al iniciar
+//    mongo.iniciar_mongo(); // Conectar a MongoDB al iniciar
 
-    _wifiService = ESP32WifiService(ipAddress: '192.168.40.229');
+    _wifiService = ESP32WifiService(ipAddress: '10.74.22.231');
     _wifiService.verificarConexion().then((ok) {
       print("Verificacion manual en initState: $ok");
     });
@@ -55,11 +56,12 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     // Ejecutar luego del primer frame
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-       _mostrarDialogo('Buscando Esp32 por WiFi...');
-      _autoBuscarESP32();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _autoBuscarESP32();
       if (_dialogoAbierto) _cerrarDialogo();
-      checked = check_mode(_isConnected, developer_mode);
+      setState(() {
+        checked = check_mode(_isConnected, developer_mode);
+      });
     });
   }
 
@@ -129,51 +131,84 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<bool> _autoBuscarESP32() async {
-    _cancelarBusqueda = false; // resetear flag
+    _cancelarBusqueda = false;
     bool result = false;
+    print('[HOME] _autoBuscarESP32 iniciado');
     try {
       final connectivity = await Connectivity().checkConnectivity();
-      if (connectivity == ConnectivityResult.none) {
+      print('[HOME] Estado de conectividad: $connectivity');
+
+      if (!connectivity.contains(ConnectivityResult.wifi)) {
+        print('[HOME] No hay WiFi activo — abortando búsqueda');
         _cerrarDialogo();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('No hay conexión WiFi activa')),
-            
           );
-          _isConnected=false;
+          _isConnected = false;
         }
         return false;
       }
 
+      // 1) Intentar primero con la IP que ya tenemos (más rápido)
+      final ipActual = _wifiService.ipAddress;
+      print('[HOME] Paso 1: verificando HTTP en IP actual ($ipActual)...');
+      _mostrarDialogo('Verificando ESP32 en $ipActual...');
+      final httpActual = await _verificarIpRapido(ipActual);
+      print('[HOME] HTTP en $ipActual: $httpActual');
+      if (httpActual) {
+        _cerrarDialogo();
+        print('[HOME] ESP32 confirmado en $ipActual por HTTP');
+        _isConnected = true;
+        result = true;
+        _ipController.text = ipActual;
+        setState(() { check_mode(_isConnected, developer_mode); });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('ESP32 conectado en $ipActual')),
+          );
+        }
+        return true;
+      }
+      _cerrarDialogo();
+
+      // 2) Intentar UDP broadcast
+      print('[HOME] Paso 2: intentando UDP broadcast...');
       _mostrarDialogoConCancelar('Buscando ESP32 con broadcast UDP...');
       final ipBroadcast = await discoverESP32();
+      print('[HOME] discoverESP32 terminó — resultado: $ipBroadcast');
+
       if (_cancelarBusqueda) {
+        print('[HOME] Búsqueda cancelada por usuario');
         _cerrarDialogo();
         return false;
       }
       _cerrarDialogo();
 
       if (ipBroadcast != null) {
-        print('ESP32 encontrado con broadcast en $ipBroadcast');
+        print('[HOME] ESP32 encontrado por UDP en $ipBroadcast');
         _isConnected = true;
         _wifiService.ipAddress = ipBroadcast;
+        _ipController.text = ipBroadcast;
         result = true;
-         setState(() {
-      check_mode(_isConnected, developer_mode);
-        });
-
-
+        setState(() { check_mode(_isConnected, developer_mode); });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('ESP32 encontrado en $ipBroadcast (Broadcast UDP)')),
+            SnackBar(content: Text('ESP32 encontrado en $ipBroadcast (UDP)')),
           );
         }
-      
+        return true;
       }
 
-
-    } catch (e) {
-      print('Error en _autoBuscarESP32: $e');
+      print('[HOME] Paso 3: UDP falló — ESP32 no encontrado');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ESP32 no encontrado')),
+        );
+      }
+    } catch (e, stack) {
+      print('[HOME] ERROR en _autoBuscarESP32: $e');
+      print('[HOME] Stack: $stack');
       _cerrarDialogo();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -182,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
       }
       result = false;
     }
+    print('[HOME] _autoBuscarESP32 terminó — resultado: $result');
     return result;
   }
 
@@ -235,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<bool> _verificarConexionReal() async {
     try {
       final connectivity = await Connectivity().checkConnectivity();
-      if (connectivity == ConnectivityResult.none) {
+      if (!connectivity.contains(ConnectivityResult.wifi)) {
         _cerrarDialogo();
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -365,8 +401,35 @@ bool check_mode(bool conecte , bool devele) {
 
 
   @override
+  void dispose() {
+    _ipController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _conectarConIp(String ip) async {
+    final ipTrimmed = ip.trim();
+    if (ipTrimmed.isEmpty) return;
+    print('[HOME] Conectando manualmente a IP: $ipTrimmed');
+    _wifiService.ipAddress = ipTrimmed;
+    if (_dialogoAbierto) _cerrarDialogo();
+    _mostrarDialogo('Conectando a $ipTrimmed...');
+    final ok = await _verificarIpRapido(ipTrimmed);
+    _cerrarDialogo();
+    print('[HOME] Resultado conexión manual a $ipTrimmed: $ok');
+    setState(() {
+      _isConnected = ok;
+      check_mode(ok, developer_mode);
+    });
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ok ? 'Conectado a $ipTrimmed' : 'No se pudo conectar a $ipTrimmed')),
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Menú principal'),
@@ -386,14 +449,9 @@ bool check_mode(bool conecte , bool devele) {
                     color: checked ? Colors.green : Colors.red,
                   ),
                 ),
-                Icon(_isSelected ? Icons.wifi : Icons.cable, size: 24),
+                const Icon(Icons.wifi, size: 24),
                 const SizedBox(width: 4),
-                Text(_isSelected ? 'Wi-Fi' : 'Cable',
-                    style: const TextStyle(fontSize: 16, color: Colors.white)),
-                Switch(
-                  value: _isSelected,
-                  onChanged: _handleSwitchChange,
-                ),
+                const Text('Wi-Fi', style: TextStyle(fontSize: 16, color: Colors.white)),
 
                  IconButton(
               tooltip: 'Recargar',
@@ -408,47 +466,80 @@ bool check_mode(bool conecte , bool devele) {
         ],
       ),
       body: Center(
-        child: Row(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            SizedBox(
-              width: 160,
-              height: 160,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 160,
+                  height: 160,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistorialRegistros())),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.description, size: 80),
+                        SizedBox(height: 8),
+                        Text('Historial de registros'),
+                      ],
+                    ),
+                  ),
                 ),
-                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistorialRegistros())),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.description, size: 80),
-                    SizedBox(height: 8),
-                    Text('Historial de registros'),
-                  ],
+                const SizedBox(width: 40),
+                SizedBox(
+                  width: 160,
+                  height: 160,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      backgroundColor: checked ? null : Colors.grey[300],
+                    ),
+                    onPressed: checked
+                        ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreandoRegistros(connectionManager: _connectionManager, developer_mode: developer_mode)))
+                        : null,
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.analytics, size: 80),
+                        SizedBox(height: 8),
+                        Text('Iniciar registro'),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
-            const SizedBox(width: 40),
+            const SizedBox(height: 32),
             SizedBox(
-              width: 160,
-              height: 160,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  backgroundColor: checked ? null : Colors.grey[300],
-                ),
-                onPressed: checked
-                    ? () => Navigator.push(context, MaterialPageRoute(builder: (_) =>  CreandoRegistros(connectionManager:_connectionManager,developer_mode:developer_mode)))
-                    : null,
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.analytics, size: 80),
-                    SizedBox(height: 8),
-                    Text('Iniciar registro'),
-                  ],
-                ),
+              width: 360,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ipController,
+                      decoration: const InputDecoration(
+                        labelText: 'IP del ESP32',
+                        hintText: '192.168.x.x',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.router),
+                        isDense: true,
+                      ),
+                      keyboardType: TextInputType.number,
+                      onSubmitted: _conectarConIp,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.link),
+                    label: const Text('Conectar'),
+                    onPressed: () => _conectarConIp(_ipController.text),
+                  ),
+                ],
               ),
             ),
           ],

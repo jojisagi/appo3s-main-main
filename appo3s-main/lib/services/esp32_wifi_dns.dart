@@ -2,31 +2,46 @@ import 'dart:async';
 import 'dart:io';
 
 Future<String?> discoverESP32() async {
-  final RawDatagramSocket socket =
-      await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-  final String message = "ESP32_DISCOVER";
+  print('[UDP] Iniciando discoverESP32...');
+  late RawDatagramSocket socket;
+  try {
+    socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+    print('[UDP] Socket abierto en puerto local: ${socket.port}');
+  } catch (e) {
+    print('[UDP] ERROR al abrir socket: $e');
+    return null;
+  }
+
+  const String message = "ESP32_DISCOVER";
   final InternetAddress broadcastAddress = InternetAddress("255.255.255.255");
-  final int port = 4210;
+  const int port = 4210;
 
   socket.broadcastEnabled = true;
-  socket.send(message.codeUnits, broadcastAddress, port);
+  final bytesSent = socket.send(message.codeUnits, broadcastAddress, port);
+  print('[UDP] Enviado "$message" a $broadcastAddress:$port — bytes enviados: $bytesSent');
 
   final completer = Completer<String?>();
-  Timer timeout = Timer(Duration(seconds: 3), () {
-    completer.complete(null); // Timeout
+  Timer timeout = Timer(const Duration(seconds: 10), () {
+    print('[UDP] Timeout — sin respuesta del ESP32 en 10s');
+    if (!completer.isCompleted) completer.complete(null);
     socket.close();
   });
 
   socket.listen((RawSocketEvent event) {
+    print('[UDP] Evento socket: $event');
     if (event == RawSocketEvent.read) {
       final Datagram? dg = socket.receive();
       if (dg != null) {
         final response = String.fromCharCodes(dg.data);
+        print('[UDP] Paquete recibido de ${dg.address.address}:${dg.port} → "$response"');
         if (response.startsWith("ESP32_RESPONSE:")) {
           timeout.cancel();
           socket.close();
           final ip = response.split(":")[1];
-          completer.complete(ip);
+          print('[UDP] IP del ESP32 extraída: $ip');
+          if (!completer.isCompleted) completer.complete(ip);
+        } else {
+          print('[UDP] Paquete ignorado (no es ESP32_RESPONSE)');
         }
       }
     }

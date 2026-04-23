@@ -11,7 +11,7 @@ class ESP32WifiService {
   Future<bool> verificarConexion() async {
     try {
       final connectivityResult = await Connectivity().checkConnectivity();
-      if (connectivityResult != ConnectivityResult.wifi) return false;
+      if (!connectivityResult.contains(ConnectivityResult.wifi)) return false;
 
       final response = await http.get(
         Uri.parse('http://$ipAddress:$port/status'),
